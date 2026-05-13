@@ -84,9 +84,9 @@ const C = {
 
 // ── Agents (2-step flow) ─────────────────────────────────────────────────────
 const AGENTS = [
-  { id:"root", name:"Root Cause Analysis", short:"Root Cause", glyph:"R", colour:"#44709D",
+  { id:"root", name:"Autonomous Root Cause", short:"Root Cause", glyph:"R", colour:"#44709D",
     tagline:"Automatically diagnoses reporting failures across fields, asset classes, counterparties and time periods — so you understand exactly what went wrong before you fix it.", duration:2600 },
-  { id:"rem",  name:"Fix & Manage", short:"Fix & Manage", glyph:"F", colour:"#B05D00",
+  { id:"rem",  name:"Intelligent Remediation", short:"Rem & Sim", glyph:"F", colour:"#B05D00",
     tagline:"Generates a prioritised remediation plan, groups issues by root cause, simulates each fix against your data, and pre-populates your E&O notification — ready for Compliance sign-off.", duration:1800 },
 ];
 const A = Object.fromEntries(AGENTS.map(a => [a.id, a]));
@@ -326,7 +326,7 @@ const ConfBar=({value,colour=C.blue})=>(
 const Tracker=({stage})=>{
   const steps=[
     {id:"root",label:"Root Cause"},
-    {id:"rem", label:"Fix & Manage"},
+    {id:"rem", label:"Rem & Sim"},
   ];
   const stateOf=id=>{
     if(stage==="idle") return "pending";
@@ -675,7 +675,7 @@ const ReviewRoot=({onNext,onCancel})=>{
         <div style={{display:"flex",alignItems:"center",gap:16}}>
           <Glyph a={A.root} size={44}/>
           <div style={{flex:1}}>
-            <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Step 1 · Root Cause Analysis</div>
+            <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Step 1 · Autonomous Root Cause</div>
             <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>3 structural root causes identified across DFR fields</div>
             <div style={{fontSize:12,color:C.ink2,marginTop:6}}>Detects recurring inaccurate data patterns across: (1) Fields, (2) Asset Classes, (3) Counterparties, and (4) Time Periods · avg confidence 80%</div>
           </div>
@@ -710,7 +710,7 @@ const ReviewRoot=({onNext,onCancel})=>{
         {ROOT_CAUSES.map(rc=>{
           const isSel=selected.has(rc.id);
           return(
-          <Card key={rc.id} padding={0} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
+          <Card key={rc.id} padding={0} hover onClick={()=>setOpenId(rc.id)}
             style={{borderColor:!isSel?C.line:openId===rc.id?A.root.colour+"99":C.line,
               opacity:isSel?1:0.5,transition:"opacity 200ms ease,border-color 140ms ease",overflow:"hidden",
               outline:openId===rc.id?`2px solid ${A.root.colour}44`:"none",outlineOffset:1}}>
@@ -817,11 +817,7 @@ const ReviewRoot=({onNext,onCancel})=>{
                     <div style={{fontSize:16,fontWeight:700,color:C.ink,lineHeight:1.35,marginBottom:6}}>{rc.title}</div>
                     <div style={{fontSize:13,color:C.ink2,lineHeight:1.65}}>{rc.summary}</div>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
-                    <button onClick={()=>setOpenId(null)}
-                      style={{width:30,height:30,borderRadius:999,border:`1px solid ${C.line}`,
-                        background:"#fff",cursor:"pointer",fontSize:16,color:C.ink3,
-                        display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  <div style={{flexShrink:0}}>
                     <Donut value={rc.confidence} colour={A.root.colour} size={64} label="Conf"/>
                   </div>
                 </div>
@@ -951,7 +947,7 @@ const ReviewRoot=({onNext,onCancel})=>{
         )}
         <div style={{flex:1}}/>
         <Btn variant="primary" size="md" disabled={selList.length===0} onClick={onNext}>
-          Run Fix &amp; Manage →
+          Run Intelligent Remediation →
         </Btn>
       </div>
     </div>
@@ -1115,10 +1111,10 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
   const [simming,setSimming]=useState(new Set());
   const [results,setResults]=useState({});
   const [log,setLog]=useState([]);
-  const [expandedFix,setExpandedFix]=useState(null);
+  const [expandedFix,setExpandedFix]=useState("FX-RC1");
   const [cascadeRCDone,setCascadeRCDone]=useState(new Set());
   const logRef=useRef(null);
-  const toggleExpand=id=>setExpandedFix(v=>v===id?null:id);
+  const toggleExpand=id=>setExpandedFix(id);
 
   useEffect(()=>{
     if(logRef.current) logRef.current.scrollTop=logRef.current.scrollHeight;
@@ -1185,6 +1181,10 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
   const statusIcon =s=>s==="safe"||s==="cascade-resolved"?"✓":s==="human"?"👤":"⚠";
 
   const drawerFix=expandedFix?fixes.find(f=>f.id===expandedFix):null;
+  const drawerRes=drawerFix?results[drawerFix.id]:null;
+  const drawerIsSim=drawerFix?simming.has(drawerFix.id):false;
+  const drawerRcDone=drawerFix?cascadeRCDone.has(drawerFix.id):false;
+  const drawerCanSim=drawerFix?(!drawerFix.isCascade||drawerRcDone):false;
 
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:C.surface}}>
@@ -1197,7 +1197,7 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
             display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:15}}>S</div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Fix &amp; Manage</div>
+          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation</div>
           <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Test each fix before applying — nothing changes until you say so</div>
         </div>
         <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root causes</Btn>
@@ -1219,70 +1219,52 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
               const res=results[fix.id];
               const isSim=simming.has(fix.id);
               const rcDone=cascadeRCDone.has(fix.id);
-              const isExpanded=expandedFix===fix.id;
-              const rcData=RC_MAP[fix.id];
-              const sc=res?statusColour(res.status):C.line;
-              const canSim=!fix.isCascade||rcDone;
+              const isActive=expandedFix===fix.id;
               const confVal=fix.isCascade&&rcDone?CASCADE_RC.confidence:fix.confidence;
+              const stripCol=confVal>=85?C.red:confVal>=75?C.amber:C.blue;
               return(
                 <div key={fix.id} className={fix.isCascade?"slideIn":undefined}
-                  style={{border:`1px solid ${isExpanded?C.blue+"88":res?sc+"55":C.line}`,
-                    borderRadius:10,overflow:"hidden",
-                    borderLeft:`4px solid ${isExpanded?C.blue:res?sc:fix.isCascade?C.amber:C.line2}`,
+                  onClick={()=>toggleExpand(fix.id)}
+                  style={{overflow:"hidden",borderRadius:10,cursor:"pointer",
+                    border:`1px solid ${isActive?A.rem.colour+"99":res?statusColour(res.status)+"44":C.line}`,
                     background:"#fff",
-                    boxShadow:isExpanded?`0 4px 16px ${C.blue}1A`:"none",
-                    transition:"border-color 140ms ease,box-shadow 140ms ease"}}>
+                    outline:isActive?`2px solid ${A.rem.colour}33`:"none",outlineOffset:1,
+                    transition:"border-color 140ms ease,outline 140ms ease"}}>
 
-                  {/* clickable header */}
-                  <div onClick={()=>toggleExpand(fix.id)}
-                    style={{padding:"12px 14px",cursor:"pointer",
-                      background:fix.isCascade&&!res&&!rcDone?C.amberT:"#fff",
-                      userSelect:"none"}}>
-                    {/* top badges row */}
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                      <span style={{fontSize:10,fontWeight:700,color:C.ink3,letterSpacing:"0.04em"}}>{fix.id}</span>
-                      {fix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ Cascade fix</Pill>}
+                  {/* severity strip */}
+                  <div style={{height:3,background:res?statusColour(res.status):stripCol,borderRadius:"9px 9px 0 0"}}/>
+
+                  <div style={{padding:"14px 16px"}}>
+                    {/* top row */}
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,color:C.ink3,fontWeight:700,letterSpacing:"0.05em"}}>{fix.id}</span>
+                      {fix.isCascade&&<Pill bg={C.amberBg} fg={C.amber}>↻ Cascade</Pill>}
                       {res&&<Pill bg={statusBg(res.status)} fg={statusColour(res.status)}>{statusLabel(res.status)}</Pill>}
-                      <div style={{marginLeft:"auto",fontSize:12,color:C.ink3,
-                        transition:"transform 140ms ease",
-                        transform:isExpanded?"rotate(180deg)":"none"}}>▾</div>
+                      <div style={{flex:1}}/>
+                      <span style={{fontSize:11,color:isActive?A.rem.colour:C.ink3,fontWeight:600,transition:"color 140ms ease"}}>
+                        {isActive?"Viewing ▸":"View detail ▸"}
+                      </span>
                     </div>
-                    {/* record count + title */}
-                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
-                      <span style={{fontSize:24,fontWeight:800,color:res?statusColour(res.status):C.ink,
-                        letterSpacing:"-0.02em",lineHeight:1}}>{fix.records.toLocaleString()}</span>
-                      <span style={{fontSize:10,color:C.ink3,fontWeight:600,textTransform:"uppercase",
-                        letterSpacing:"0.05em"}}>reports</span>
-                    </div>
-                    <div style={{fontSize:12,fontWeight:700,marginBottom:6,lineHeight:1.4,color:C.ink}}>{fix.title}</div>
-                    <div style={{fontSize:11,color:C.ink2,marginBottom:8,lineHeight:1.5}}>{fix.desc}</div>
-                    {(canSim||res)&&<ConfBar value={confVal} colour={res?statusColour(res.status):C.blue}/>}
-                  </div>
 
-                  {/* footer */}
-                  <div style={{padding:"10px 14px",borderTop:`1px solid ${C.line}`,
-                    background:C.muted,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:10,color:C.ink3}}>{fix.field}</span>
-                    {!res&&!isSim&&canSim&&(
-                      <Btn size="sm" variant="soft" onClick={e=>{e.stopPropagation();simulate(fix);}}>Run simulation →</Btn>
-                    )}
-                    {!res&&!isSim&&!canSim&&(
-                      <span style={{fontSize:10,color:C.ink2,fontStyle:"italic"}}>Analysing cascade…</span>
-                    )}
-                    {isSim&&(
-                      <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.ink2}}>
-                        <AIStar size={12} colour={C.blue} spin/>Running…
+                    {/* main row: big count + title/desc + donut */}
+                    <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+                      <div style={{flexShrink:0,textAlign:"center",width:76}}>
+                        <div style={{fontSize:30,fontWeight:800,color:res?statusColour(res.status):C.ink,
+                          letterSpacing:"-0.03em",lineHeight:1}}>{fix.records.toLocaleString()}</div>
+                        <div style={{fontSize:9,color:C.ink3,fontWeight:600,marginTop:3,
+                          textTransform:"uppercase",letterSpacing:"0.06em"}}>reports</div>
                       </div>
-                    )}
-                    {res&&!isSim&&(
-                      <span style={{fontSize:10,color:statusColour(res.status),fontWeight:600}}>Done ✓</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.ink,lineHeight:1.35,marginBottom:4}}>{fix.title}</div>
+                        <div style={{fontSize:11,color:C.ink2,lineHeight:1.5}}>{fix.desc}</div>
+                      </div>
+                      <Donut value={confVal} colour={res?statusColour(res.status):A.rem.colour} size={56} label="Conf"/>
+                    </div>
+
+                    {fix.isCascade&&!rcDone&&(
+                      <CascadeRCMini onDone={()=>setCascadeRCDone(s=>new Set([...s,fix.id]))}/>
                     )}
                   </div>
-
-                  {/* cascade mini RC agent — auto-runs when tile appears */}
-                  {fix.isCascade&&!rcDone&&(
-                    <CascadeRCMini onDone={()=>setCascadeRCDone(s=>new Set([...s,fix.id]))}/>
-                  )}
                 </div>
               );
             })}
@@ -1309,118 +1291,88 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
           </div>
         </div>
 
-        {/* RIGHT: Simulation log + fix detail overlay */}
-        <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden",position:"relative"}}>
-
-          {/* log header */}
-          <div style={{padding:"14px 24px",borderBottom:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:700}}>Simulation results</div>
-              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>Each fix is tested against a shadow copy of your data before anything is changed</div>
-            </div>
-            {log.length>0&&(
-              <div style={{display:"flex",gap:8}}>
-                {resVals.filter(r=>r.status==="safe"||r.status==="cascade-resolved").length>0&&
-                  <Pill bg={C.greenBg} fg={C.green}>✓ {resVals.filter(r=>r.status==="safe"||r.status==="cascade-resolved").length} safe</Pill>}
-                {resVals.filter(r=>r.status==="human").length>0&&
-                  <Pill bg={C.amberBg} fg={C.amber}>👤 {resVals.filter(r=>r.status==="human").length} human</Pill>}
-                {resVals.filter(r=>r.status==="cascade").length>0&&
-                  <Pill bg={C.redBg} fg={C.red}>⚠ {resVals.filter(r=>r.status==="cascade").length} cascade</Pill>}
+        {/* RIGHT: fix detail panel (always open) */}
+        <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden",borderLeft:`1px solid ${C.line}`}}>
+          {drawerFix?(
+            <>
+              {/* drawer header */}
+              <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.line}`,background:"#fff",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                      <Pill bg={C.muted} fg={C.ink2}>{drawerFix.id}</Pill>
+                      {drawerFix.isCascade&&<Pill bg={C.amberBg} fg={C.amber}>↻ Cascade fix</Pill>}
+                      {drawerRes&&<Pill bg={statusBg(drawerRes.status)} fg={statusColour(drawerRes.status)}>{statusLabel(drawerRes.status)}</Pill>}
+                    </div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:8}}>
+                      <span style={{fontSize:36,fontWeight:800,color:drawerRes?statusColour(drawerRes.status):C.ink,
+                        letterSpacing:"-0.03em",lineHeight:1}}>{drawerFix.records.toLocaleString()}</span>
+                      <span style={{fontSize:11,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>reports</span>
+                    </div>
+                    <div style={{fontSize:16,fontWeight:700,lineHeight:1.35,marginBottom:6}}>{drawerFix.title}</div>
+                    <div style={{fontSize:13,color:C.ink2,lineHeight:1.65}}>{drawerFix.desc}</div>
+                  </div>
+                  <Donut value={drawerFix.isCascade&&drawerRcDone?CASCADE_RC.confidence:drawerFix.confidence}
+                    colour={drawerRes?statusColour(drawerRes.status):A.rem.colour} size={72} label="Conf"/>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* log body */}
-          <div ref={logRef} style={{flex:1,minHeight:0,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:12}}>
-            {log.length===0&&(
-              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:40}}>
-                <div style={{width:56,height:56,borderRadius:999,background:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>⚗</div>
-                <div style={{fontSize:14,fontWeight:600,color:C.ink2}}>Nothing tested yet</div>
-                <div style={{fontSize:12,textAlign:"center",maxWidth:300,lineHeight:1.7,color:C.ink2}}>Click <b>Run simulation →</b> on any fix to test it against a shadow copy of your data. Results will show here — nothing gets changed until you apply.</div>
-              </div>
-            )}
+              {/* drawer body */}
+              <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
+                <FixDrawer fix={drawerFix}
+                  rcData={(!drawerFix.isCascade||drawerRcDone)?RC_MAP[drawerFix.id]:null}/>
 
-            {log.map((entry,i)=>(
-              <div key={entry.key||i} className="slideIn">
-
-                {entry.status==="simulating"&&(
-                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
+                {/* inline simulation result */}
+                {drawerIsSim&&(
+                  <div style={{margin:"0 14px 14px",padding:"14px 16px",borderRadius:10,
                     background:`linear-gradient(135deg,#F4F8FF,#fff)`,
-                    border:`1px solid ${C.blue}33`,borderRadius:10,
-                    position:"relative",overflow:"hidden",
-                    boxShadow:`0 0 0 1px ${C.blue}15, 0 4px 14px ${C.blue}12`}}>
-                    {/* scan sweep */}
+                    border:`1px solid ${C.blue}33`,
+                    display:"flex",alignItems:"center",gap:12,position:"relative",overflow:"hidden"}}>
                     <div style={{position:"absolute",inset:0,pointerEvents:"none",
                       background:`linear-gradient(90deg,transparent,${C.blue}14,transparent)`,
                       animation:"shimmerSlide 1.6s ease-in-out infinite"}}/>
-                    <div style={{width:40,height:40,borderRadius:999,flexShrink:0,
-                      background:C.blueT2,border:`1.5px solid ${C.blue}44`,
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      boxShadow:`0 0 14px ${C.blue}44`,position:"relative"}}>
+                    <div style={{width:40,height:40,borderRadius:999,background:C.blueT2,
+                      border:`1.5px solid ${C.blue}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                      boxShadow:`0 0 14px ${C.blue}44`,position:"relative",flexShrink:0}}>
                       <AIStar size={18} colour={C.blue} spin/>
                     </div>
-                    <div style={{flex:1,position:"relative"}}>
-                      <div style={{fontSize:13,fontWeight:700}}>{entry.fixTitle}</div>
-                      <div style={{fontSize:11,color:C.blue,marginTop:3,display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{display:"inline-block",width:6,height:6,borderRadius:999,background:C.blue,animation:"aiPulse 1s ease-in-out infinite"}}/>
-                        Replaying on shadow ledger · checking downstream consumers
-                      </div>
+                    <div style={{position:"relative"}}>
+                      <div style={{fontSize:13,fontWeight:700}}>Running simulation…</div>
+                      <div style={{fontSize:11,color:C.blue,marginTop:3}}>Replaying on shadow ledger · checking downstream consumers</div>
                     </div>
-                    <div style={{fontSize:11,color:C.blue,fontWeight:700,
-                      padding:"4px 10px",borderRadius:999,background:C.blueT2,
-                      border:`1px solid ${C.blue}44`,position:"relative"}}>Running</div>
                   </div>
                 )}
-
-                {entry.status==="cascade-notify"&&(
-                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
-                    background:C.amberT,border:`1px solid ${C.amber}55`,borderRadius:8}}>
-                    <div style={{width:30,height:30,borderRadius:999,background:C.amberBg,
-                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>↻</div>
-                    <div style={{flex:1}}>
-                      <span style={{fontSize:12,fontWeight:700,color:C.amber}}>Cascade fix auto-added · Root Cause Analysis running</span>
-                      <div style={{fontSize:11,color:C.ink2,marginTop:3,lineHeight:1.5}}>
-                        <b>{entry.cascadeFix.id}</b> — {entry.cascadeFix.title}
-                        <br/>Analysing downstream break. Simulate once Root Cause Analysis completes.
-                      </div>
-                    </div>
-                    <AIStar size={14} colour={C.amber} spin/>
-                  </div>
-                )}
-
-                {["safe","human","cascade","cascade-resolved"].includes(entry.status)&&(
-                  <div className="stampIn" style={{background:"#fff",
-                    border:`1px solid ${statusColour(entry.status)}55`,
-                    borderRadius:10,overflow:"hidden",
-                    borderLeft:`4px solid ${statusColour(entry.status)}`,
-                    boxShadow:`0 2px 12px ${statusColour(entry.status)}18`}}>
-                    <div style={{padding:"14px 16px"}}>
+                {drawerRes&&!drawerIsSim&&(
+                  <div className="stampIn" style={{margin:"0 14px 14px",borderRadius:10,overflow:"hidden",
+                    border:`1px solid ${statusColour(drawerRes.status)}55`,
+                    borderLeft:`4px solid ${statusColour(drawerRes.status)}`,
+                    boxShadow:`0 2px 12px ${statusColour(drawerRes.status)}18`}}>
+                    <div style={{padding:"14px 16px",background:"#fff"}}>
                       <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:10}}>
                         <div style={{width:36,height:36,borderRadius:999,flexShrink:0,
-                          background:statusBg(entry.status),color:statusColour(entry.status),
+                          background:statusBg(drawerRes.status),color:statusColour(drawerRes.status),
                           display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18}}>
-                          {statusIcon(entry.status)}
+                          {statusIcon(drawerRes.status)}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>{entry.fixTitle}</div>
-                          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                            <Pill bg={statusBg(entry.status)} fg={statusColour(entry.status)}>{statusLabel(entry.status)}</Pill>
-                            {entry.ftr&&<Pill bg={C.muted} fg={C.ink2}>{entry.ftr}% first-time-right</Pill>}
-                            {entry.readiness&&entry.status!=="cascade"&&<Pill bg={C.muted} fg={C.ink2}>Readiness {entry.readiness}</Pill>}
+                          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+                            <Pill bg={statusBg(drawerRes.status)} fg={statusColour(drawerRes.status)}>{statusLabel(drawerRes.status)}</Pill>
+                            {drawerRes.ftr&&<Pill bg={C.muted} fg={C.ink2}>{drawerRes.ftr}% first-time-right</Pill>}
+                            {drawerRes.readiness&&drawerRes.status!=="cascade"&&<Pill bg={C.muted} fg={C.ink2}>Readiness {drawerRes.readiness}</Pill>}
                           </div>
+                          <div style={{fontSize:12,color:C.ink2,lineHeight:1.6}}>{drawerRes.detail}</div>
+                          {drawerRes.note&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"6px 10px",background:C.amberT,borderRadius:6}}>⚠ {drawerRes.note}</div>}
+                          {drawerRes.reason&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"8px 10px",background:C.amberT,borderRadius:6,lineHeight:1.5}}>
+                            <b>Why human review is needed:</b> {drawerRes.reason}
+                          </div>}
                         </div>
                       </div>
-                      <div style={{fontSize:12,color:C.ink2,lineHeight:1.6}}>{entry.detail}</div>
-                      {entry.note&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"6px 10px",background:C.amberT,borderRadius:6}}>⚠ {entry.note}</div>}
-                      {entry.reason&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"8px 10px",background:C.amberT,borderRadius:6,lineHeight:1.5}}>
-                        <b>Why human review is needed:</b> {entry.reason}
-                      </div>}
                     </div>
-                    {entry.status==="cascade"&&entry.cascadeChain&&(
+                    {drawerRes.cascadeChain&&(
                       <div style={{padding:"10px 16px",borderTop:`1px solid ${C.line}`,background:C.redT,
                         display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                         <span style={{fontSize:10,color:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:4}}>cascade ⚠</span>
-                        {entry.cascadeChain.map((s,j,arr)=>(
+                        {drawerRes.cascadeChain.map((s,j,arr)=>(
                           <React.Fragment key={j}>
                             <span style={{fontSize:11,fontWeight:600,color:C.red}}>{s}</span>
                             {j<arr.length-1&&<span style={{color:C.red,fontSize:12}}>→</span>}
@@ -1428,62 +1380,62 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
                         ))}
                       </div>
                     )}
-                    {entry.status==="cascade-resolved"&&(
+                    {drawerRes.status==="cascade-resolved"&&(
                       <div style={{padding:"8px 16px",borderTop:`1px solid ${C.line}`,background:C.greenT,
                         display:"flex",alignItems:"center",gap:8}}>
                         <span style={{fontSize:11,color:C.green,fontWeight:700}}>✓ Cascade resolved</span>
-                        <span style={{fontSize:11,color:C.ink2}}>Downstream fix applied and verified — safe to include in submission.</span>
+                        <span style={{fontSize:11,color:C.ink2}}>Downstream fix applied and verified.</span>
                       </div>
                     )}
                   </div>
                 )}
-
-              </div>
-            ))}
-          </div>
-
-          {/* ── Fix detail overlay drawer ─────────────────────────────────── */}
-          {drawerFix&&(
-            <div className="slideInRight" style={{
-              position:"absolute",inset:0,zIndex:20,
-              background:"#fff",display:"flex",flexDirection:"column",
-              borderLeft:`1px solid ${C.line}`,
-              boxShadow:"-8px 0 32px rgba(0,0,0,.10)"}}>
-
-              {/* drawer header */}
-              <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.line}`,
-                background:"#fff",display:"flex",alignItems:"flex-start",gap:14,flexShrink:0}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:7,flexWrap:"wrap"}}>
-                    <Pill bg={C.muted} fg={C.ink2} style={{fontSize:10}}>{drawerFix.id}</Pill>
-                    {drawerFix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ cascade fix</Pill>}
-                    {results[drawerFix.id]&&(
-                      <Pill bg={statusBg(results[drawerFix.id].status)} fg={statusColour(results[drawerFix.id].status)}>
-                        {statusLabel(results[drawerFix.id].status)}
-                      </Pill>
-                    )}
+                {drawerRes?.status==="cascade"&&drawerRes.cascadeFix&&(
+                  <div style={{margin:"0 14px 14px",padding:"12px 14px",background:C.amberT,
+                    border:`1px solid ${C.amber}55`,borderRadius:8,display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:30,height:30,borderRadius:999,background:C.amberBg,
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>↻</div>
+                    <div style={{flex:1}}>
+                      <span style={{fontSize:12,fontWeight:700,color:C.amber}}>Cascade fix auto-added</span>
+                      <div style={{fontSize:11,color:C.ink2,marginTop:3,lineHeight:1.5}}>
+                        <b>{drawerRes.cascadeFix.id}</b> — {drawerRes.cascadeFix.title}
+                      </div>
+                    </div>
+                    <AIStar size={14} colour={C.amber} spin/>
                   </div>
-                  <div style={{fontSize:15,fontWeight:700,lineHeight:1.35,marginBottom:4}}>{drawerFix.title}</div>
-                  <div style={{fontSize:11,color:C.ink2}}>{drawerFix.records.toLocaleString()} records · {drawerFix.entity} · <span style={{fontFamily:"monospace",fontSize:10}}>{drawerFix.field}</span></div>
-                </div>
-                <button onClick={()=>setExpandedFix(null)}
-                  style={{width:30,height:30,borderRadius:999,border:`1px solid ${C.line}`,
-                    background:"#fff",cursor:"pointer",fontSize:14,color:C.ink2,flexShrink:0,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    transition:"all 120ms ease"}}
-                  onMouseEnter={e=>e.target.style.background=C.muted}
-                  onMouseLeave={e=>e.target.style.background="#fff"}>✕</button>
+                )}
               </div>
 
-              {/* drawer body */}
-              <div style={{flex:1,overflowY:"auto"}}>
-                <FixDrawer
-                  fix={drawerFix}
-                  rcData={(!drawerFix.isCascade||cascadeRCDone.has(drawerFix.id))?RC_MAP[drawerFix.id]:null}/>
+              {/* drawer footer: run simulation CTA */}
+              <div style={{padding:"12px 20px",borderTop:`1px solid ${C.line}`,background:"#fff",flexShrink:0}}>
+                {!drawerRes&&!drawerIsSim&&!drawerCanSim&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.ink2}}>
+                    <AIStar size={12} colour={C.amber} spin/>
+                    Analysing cascade — simulation available once complete
+                  </div>
+                )}
+                {!drawerRes&&!drawerIsSim&&drawerCanSim&&(
+                  <Btn variant="primary" size="md" onClick={()=>simulate(drawerFix)} style={{width:"100%",justifyContent:"center"}}>
+                    Run simulation →
+                  </Btn>
+                )}
+                {drawerIsSim&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.blue,fontWeight:600,justifyContent:"center"}}>
+                    <AIStar size={14} colour={C.blue} spin/>Simulation running…
+                  </div>
+                )}
+                {drawerRes&&!drawerIsSim&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,
+                    color:statusColour(drawerRes.status),fontWeight:700}}>
+                    <span>{statusIcon(drawerRes.status)}</span> Simulation complete
+                  </div>
+                )}
               </div>
+            </>
+          ):(
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.ink3,fontSize:13}}>
+              Select a fix to view details
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -1925,9 +1877,23 @@ function App(){
           </div>
         )}
         {stage==="idle"        &&<Overview onTrigger={()=>startAgent("root")}/>}
-        {stage==="running:root"&&<AgentRunning agent={A.root}/>}
+        {stage==="running:root"&&(
+          <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
+            <div style={{flex:"0 0 480px",overflow:"hidden",pointerEvents:"none",opacity:.5,position:"relative",borderRight:`1px solid ${C.line}`}}>
+              <Overview onTrigger={()=>{}}/>
+            </div>
+            <AgentRunning agent={A.root}/>
+          </div>
+        )}
         {stage==="review:root" &&<ReviewRoot onNext={()=>startAgent("rem")} onCancel={()=>setStage("idle")}/>}
-        {stage==="running:rem" &&<AgentRunning agent={A.rem}/>}
+        {stage==="running:rem" &&(
+          <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
+            <div style={{flex:"0 0 480px",overflow:"hidden",pointerEvents:"none",opacity:.5,position:"relative",borderRight:`1px solid ${C.line}`}}>
+              <ReviewRoot onNext={()=>{}} onCancel={()=>{}}/>
+            </div>
+            <AgentRunning agent={A.rem}/>
+          </div>
+        )}
         {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("done")} onBack={()=>setStage("review:root")} onCancel={()=>setStage("idle")}/>}
         {stage==="done"        &&<DoneScreen onRestart={()=>setStage("idle")}/>}
       </div>
