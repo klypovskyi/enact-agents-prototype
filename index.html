@@ -677,6 +677,80 @@ const AgentRunning=({agent})=>{
 };
 
 // ── Root Cause review ─────────────────────────────────────────────────────────
+// ── Lineage diagram ───────────────────────────────────────────────────────────
+const LineageDiagram=({chain,breakAt,col})=>{
+  const n=chain.length;
+  const nodeCfg=i=>{
+    const isBreak=i===breakAt, isAfter=i>breakAt, isFirst=i===0, isLast=i===n-1;
+    if(isBreak) return {bg:C.redBg,   stroke:C.red,   fg:C.red,   lbl:"⚠ Break point", bold:true};
+    if(isFirst) return {bg:C.blueT2,  stroke:C.blue,  fg:C.blue,  lbl:"Source"};
+    if(isLast)  return {bg:C.muted,   stroke:C.line2, fg:C.ink,   lbl:"Destination"};
+    if(isAfter) return {bg:"#F9F9F9", stroke:C.line,  fg:C.ink3,  lbl:"Affected"};
+    return       {bg:"#fff",   stroke:C.line2, fg:C.ink,   lbl:"Transform"};
+  };
+  const connCol=i=>i>breakAt?C.line:i===breakAt?C.red:`${C.blue}77`;
+  const connDash=i=>i>breakAt?"dashed":"solid";
+  return(
+    <div style={{overflowX:"auto",paddingBottom:6}}>
+      <div style={{display:"flex",alignItems:"flex-start",minWidth:"fit-content",paddingTop:32,paddingBottom:8}}>
+        {chain.map((node,i)=>{
+          const c=nodeCfg(i);
+          const isBreak=i===breakAt, isAfter=i>breakAt;
+          return(
+            <React.Fragment key={i}>
+              {/* connector */}
+              {i>0&&(
+                <div style={{display:"flex",alignItems:"center",width:40,flexShrink:0,marginTop:44}}>
+                  <div style={{flex:1,height:0,
+                    borderTop:`2px ${connDash(i)} ${connCol(i)}`}}/>
+                  <div style={{width:0,height:0,flexShrink:0,
+                    borderTop:"5px solid transparent",borderBottom:"5px solid transparent",
+                    borderLeft:`6px solid ${connCol(i)}`}}/>
+                </div>
+              )}
+              {/* node */}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,position:"relative"}}>
+                {/* label badge */}
+                <div style={{
+                  fontSize:8,fontWeight:700,marginBottom:6,padding:"3px 9px",borderRadius:999,
+                  whiteSpace:"nowrap",textTransform:"uppercase",letterSpacing:"0.07em",
+                  color:isBreak?"#fff":c.fg,
+                  background:isBreak?C.red:isAfter?"#EBEBEB":"transparent",
+                  border:isBreak?"none":isAfter?`1px solid ${C.line}`:"none",
+                  boxShadow:isBreak?`0 0 0 4px ${C.red}20`:"none",
+                  animation:isBreak?"aiPulse 2.2s ease-in-out infinite":undefined}}>
+                  {c.lbl}
+                </div>
+                {/* box */}
+                <div style={{
+                  width:114,padding:"10px 12px",borderRadius:9,textAlign:"center",
+                  background:c.bg,
+                  border:`${isBreak?2:1}px solid ${c.stroke}`,
+                  opacity:isAfter?.6:1,
+                  boxShadow:isBreak?`0 0 0 5px ${C.red}12,0 4px 16px ${C.red}20`:"none",
+                  outline:isBreak?`2px dashed ${C.red}55`:"none",outlineOffset:4}}>
+                  <div style={{fontSize:11,fontWeight:isBreak?700:600,color:c.fg,lineHeight:1.4}}>{node}</div>
+                </div>
+                {/* failure pin below break node */}
+                {isBreak&&(
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,marginTop:6}}>
+                    <div style={{width:2,height:10,background:C.red,opacity:.5}}/>
+                    <div style={{fontSize:9,fontWeight:700,color:C.red,
+                      padding:"2px 9px",borderRadius:4,whiteSpace:"nowrap",
+                      background:C.redBg,border:`1px solid ${C.red}44`}}>
+                      Failure here
+                    </div>
+                  </div>
+                )}
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const ReviewRoot=({onNext,onCancel})=>{
   const [openId,setOpenId]=useState("RC1");
   const [selected,setSelected]=useState(()=>new Set(ROOT_CAUSES.map(r=>r.id)));
@@ -840,6 +914,18 @@ const ReviewRoot=({onNext,onCancel})=>{
 
               {/* drawer body */}
               <div style={{padding:"20px 28px 32px",display:"flex",flexDirection:"column",gap:22}}>
+
+                {/* data lineage diagram */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                    letterSpacing:"0.07em",marginBottom:4}}>Data lineage</div>
+                  <div style={{fontSize:11,color:C.ink2,marginBottom:10,lineHeight:1.5}}>
+                    The pipeline below shows how this field is derived — the highlighted node is where the failure occurs.
+                  </div>
+                  <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:10,padding:"12px 16px 8px"}}>
+                    <LineageDiagram chain={rc.chain} breakAt={rc.breakAt} col={col}/>
+                  </div>
+                </div>
 
                 {/* proposed fix */}
                 <div style={{padding:"14px 16px",background:C.blueT2,borderRadius:10,
