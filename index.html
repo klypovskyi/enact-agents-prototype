@@ -687,22 +687,19 @@ const ReviewRoot=({onNext,onCancel})=>{
       <div style={{flex:1,minHeight:0,display:"flex",overflow:"hidden"}}>
 
         {/* LEFT: stats + card list */}
-        <div style={{flex:openId?"0 0 440px":"1",minWidth:0,overflowY:"auto",
-          padding:"20px 28px 28px",display:"flex",flexDirection:"column",gap:12,
-          transition:"flex 220ms ease",borderRight:openId?`1px solid ${C.line}`:"none"}}>
-        <div style={{display:"grid",gridTemplateColumns:`repeat(${openId?2:5},1fr)`,gap:8,marginBottom:4}}>
+        <div style={{flex:"0 0 440px",minWidth:0,overflowY:"auto",
+          padding:"20px 24px 28px",display:"flex",flexDirection:"column",gap:12,
+          borderRight:`1px solid ${C.line}`}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:4}}>
           {[
             {l:"Selected",         v:`${selList.length} of 3`,  c:A.root.colour},
             {l:"Records",          v:selRecords.toLocaleString(),c:C.ink},
-            ...(!openId?[
-              {l:"Avg confidence", v:"80%",                      c:C.ink},
-              {l:"High severity",  v:"2 of 3",                   c:C.red},
-              {l:"Period",         v:"14 Jan – 09 May",          c:C.ink2, small:true},
-            ]:[]),
-          ].map(({l,v,c,small})=>(
+            {l:"Avg confidence",   v:"80%",                     c:C.ink},
+            {l:"High severity",    v:"2 of 3",                  c:C.red},
+          ].map(({l,v,c})=>(
             <div key={l} style={{padding:10,background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
               <div style={{fontSize:9,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:3}}>{l}</div>
-              <div style={{fontSize:small?13:18,fontWeight:700,color:c,lineHeight:1.2}}>{v}</div>
+              <div style={{fontSize:16,fontWeight:700,color:c,lineHeight:1.2}}>{v}</div>
             </div>
           ))}
         </div>
@@ -723,7 +720,7 @@ const ReviewRoot=({onNext,onCancel})=>{
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                 {/* selection circle */}
                 <div onClick={e=>toggleSel(rc.id,e)}
-                  style={{width:22,height:22,borderRadius:999,flexShrink:0,cursor:"pointer",
+                  style={{width:20,height:20,borderRadius:5,flexShrink:0,cursor:"pointer",
                     display:"flex",alignItems:"center",justifyContent:"center",
                     background:isSel?C.green:"#fff",
                     border:`2px solid ${isSel?C.green:C.line2}`,
@@ -1186,6 +1183,12 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
   const drawerRcDone=drawerFix?cascadeRCDone.has(drawerFix.id):false;
   const drawerCanSim=drawerFix?(!drawerFix.isCascade||drawerRcDone):false;
 
+  const simulateAll=()=>{
+    fixes.filter(f=>!results[f.id]&&!simming.has(f.id)&&(!f.isCascade||cascadeRCDone.has(f.id)))
+      .forEach(f=>simulate(f));
+  };
+  const canSimulateAll=fixes.some(f=>!results[f.id]&&!simming.has(f.id)&&(!f.isCascade||cascadeRCDone.has(f.id)));
+
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:C.surface}}>
       {/* header */}
@@ -1208,10 +1211,15 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
 
         {/* LEFT: Remediation plan */}
-        <div style={{width:400,borderRight:`1px solid ${C.line}`,display:"flex",flexDirection:"column",background:"#fff",flexShrink:0,overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted}}>
-            <div style={{fontSize:13,fontWeight:700}}>Fixes to run</div>
-            <div style={{fontSize:11,color:C.ink2,marginTop:2}}>{fixes.length} proposed fixes · {fixes.reduce((s,f)=>s+f.records,0).toLocaleString()} reports to correct</div>
+        <div style={{flex:"0 0 440px",borderRight:`1px solid ${C.line}`,display:"flex",flexDirection:"column",background:"#fff",flexShrink:0,overflow:"hidden"}}>
+          <div style={{padding:"12px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700}}>Fixes to run</div>
+              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>{fixes.length} proposed fixes · {fixes.reduce((s,f)=>s+f.records,0).toLocaleString()} reports to correct</div>
+            </div>
+            {canSimulateAll&&(
+              <Btn size="sm" variant="soft" onClick={simulateAll}>Simulate all →</Btn>
+            )}
           </div>
 
           <div style={{flex:1,minHeight:0,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
@@ -1877,14 +1885,7 @@ function App(){
           </div>
         )}
         {stage==="idle"        &&<Overview onTrigger={()=>startAgent("root")}/>}
-        {stage==="running:root"&&(
-          <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
-            <div style={{flex:"0 0 480px",overflow:"hidden",pointerEvents:"none",opacity:.5,position:"relative",borderRight:`1px solid ${C.line}`}}>
-              <Overview onTrigger={()=>{}}/>
-            </div>
-            <AgentRunning agent={A.root}/>
-          </div>
-        )}
+        {stage==="running:root"&&<AgentRunning agent={A.root}/>}
         {stage==="review:root" &&<ReviewRoot onNext={()=>startAgent("rem")} onCancel={()=>setStage("idle")}/>}
         {stage==="running:rem" &&(
           <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
