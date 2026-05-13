@@ -683,19 +683,26 @@ const ReviewRoot=({onNext,onCancel})=>{
         </div>
       </div>
 
-      {/* body */}
-      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"22px 40px 28px",display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:6}}>
+      {/* body — two-column split */}
+      <div style={{flex:1,minHeight:0,display:"flex",overflow:"hidden"}}>
+
+        {/* LEFT: stats + card list */}
+        <div style={{flex:openId?"0 0 440px":"1",minWidth:0,overflowY:"auto",
+          padding:"20px 28px 28px",display:"flex",flexDirection:"column",gap:12,
+          transition:"flex 220ms ease",borderRight:openId?`1px solid ${C.line}`:"none"}}>
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${openId?2:5},1fr)`,gap:8,marginBottom:4}}>
           {[
-            {l:"Root causes",      v:`${selList.length} of 3`,  c:A.root.colour},
-            {l:"Avg confidence",   v:"80%",                      c:C.ink},
-            {l:"Records selected", v:selRecords.toLocaleString(),c:C.ink},
-            {l:"High severity",    v:"2 of 3",                   c:C.red},
-            {l:"Detection period", v:"14 Jan – 09 May",          c:C.ink2, small:true},
+            {l:"Selected",         v:`${selList.length} of 3`,  c:A.root.colour},
+            {l:"Records",          v:selRecords.toLocaleString(),c:C.ink},
+            ...(!openId?[
+              {l:"Avg confidence", v:"80%",                      c:C.ink},
+              {l:"High severity",  v:"2 of 3",                   c:C.red},
+              {l:"Period",         v:"14 Jan – 09 May",          c:C.ink2, small:true},
+            ]:[]),
           ].map(({l,v,c,small})=>(
-            <div key={l} style={{padding:12,background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
-              <div style={{fontSize:10,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:4}}>{l}</div>
-              <div style={{fontSize:small?14:22,fontWeight:700,color:c,lineHeight:1.2}}>{v}</div>
+            <div key={l} style={{padding:10,background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
+              <div style={{fontSize:9,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:3}}>{l}</div>
+              <div style={{fontSize:small?13:18,fontWeight:700,color:c,lineHeight:1.2}}>{v}</div>
             </div>
           ))}
         </div>
@@ -705,7 +712,8 @@ const ReviewRoot=({onNext,onCancel})=>{
           return(
           <Card key={rc.id} padding={0} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
             style={{borderColor:!isSel?C.line:openId===rc.id?A.root.colour+"99":C.line,
-              opacity:isSel?1:0.5,transition:"opacity 200ms ease",overflow:"hidden"}}>
+              opacity:isSel?1:0.5,transition:"opacity 200ms ease,border-color 140ms ease",overflow:"hidden",
+              outline:openId===rc.id?`2px solid ${A.root.colour}44`:"none",outlineOffset:1}}>
 
             {/* card top strip — severity colour */}
             <div style={{height:3,background:rc.sev==="high"?C.red:rc.sev==="medium"?C.amber:C.blue,borderRadius:"9px 9px 0 0"}}/>
@@ -728,8 +736,8 @@ const ReviewRoot=({onNext,onCancel})=>{
                 <span style={{fontSize:11,color:C.ink2}}>{rc.assetClass}</span>
                 {!isSel&&<Pill bg={C.muted} fg={C.ink3} style={{marginLeft:4}}>Deferred</Pill>}
                 <div style={{flex:1}}/>
-                <span style={{fontSize:16,color:C.ink3,transition:"transform 140ms ease",
-                  transform:openId===rc.id?"rotate(180deg)":"none"}}>▾</span>
+                <span style={{fontSize:11,color:openId===rc.id?A.root.colour:C.ink3,fontWeight:600,
+                  transition:"color 140ms ease"}}>{openId===rc.id?"Viewing ▸":"View detail ▸"}</span>
               </div>
 
               {/* main content row */}
@@ -778,126 +786,153 @@ const ReviewRoot=({onNext,onCancel})=>{
               </div>
             </div>
 
-            {/* expanded detail */}
-            {openId===rc.id&&(
-              <div className="slideIn" style={{borderTop:`1px solid ${C.line}`,
-                padding:"20px 20px 24px",display:"flex",flexDirection:"column",gap:20,
-                background:"#FAFBFC"}}>
+          </Card>
+          );
+        })}
+        </div>{/* end left col */}
 
-                {/* what to fix callout */}
-                <div style={{padding:"12px 16px",background:C.blueT2,borderRadius:8,
-                  borderLeft:`3px solid ${A.root.colour}`,
-                  display:"flex",alignItems:"flex-start",gap:10}}>
-                  <span style={{fontSize:16,flexShrink:0}}>🔧</span>
-                  <div>
-                    <div style={{fontSize:11,fontWeight:700,color:A.root.colour,textTransform:"uppercase",
-                      letterSpacing:"0.07em",marginBottom:4}}>Proposed fix</div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.ink,lineHeight:1.5}}>{rc.fix}</div>
-                    <div style={{fontSize:12,color:C.ink2,marginTop:4,lineHeight:1.6}}>{rc.proposed}</div>
+        {/* RIGHT: detail drawer */}
+        {openId&&(()=>{
+          const rc=ROOT_CAUSES.find(r=>r.id===openId);
+          if(!rc)return null;
+          const col=rc.sev==="high"?C.red:C.amber;
+          return(
+            <div className="slideInRight" style={{flex:1,minWidth:0,minHeight:0,overflowY:"auto",
+              background:"#fff",display:"flex",flexDirection:"column"}}>
+
+              {/* drawer header */}
+              <div style={{padding:"20px 28px 16px",borderBottom:`1px solid ${C.line}`,flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                      <Sev level={rc.sev}/>
+                      <span style={{fontSize:11,color:C.ink3,fontWeight:700}}>{rc.id}</span>
+                      <span style={{fontSize:11,color:C.ink3}}>·</span>
+                      <span style={{fontSize:11,color:C.ink2}}>{rc.assetClass}</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:6}}>
+                      <span style={{fontSize:36,fontWeight:800,color:col,letterSpacing:"-0.03em",lineHeight:1}}>{rc.records.toLocaleString()}</span>
+                      <span style={{fontSize:11,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>reports affected</span>
+                    </div>
+                    <div style={{fontSize:16,fontWeight:700,color:C.ink,lineHeight:1.35,marginBottom:6}}>{rc.title}</div>
+                    <div style={{fontSize:13,color:C.ink2,lineHeight:1.65}}>{rc.summary}</div>
                   </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
+                    <button onClick={()=>setOpenId(null)}
+                      style={{width:30,height:30,borderRadius:999,border:`1px solid ${C.line}`,
+                        background:"#fff",cursor:"pointer",fontSize:16,color:C.ink3,
+                        display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                    <Donut value={rc.confidence} colour={A.root.colour} size={64} label="Conf"/>
+                  </div>
+                </div>
+              </div>
+
+              {/* drawer body */}
+              <div style={{padding:"20px 28px 32px",display:"flex",flexDirection:"column",gap:22}}>
+
+                {/* proposed fix */}
+                <div style={{padding:"14px 16px",background:C.blueT2,borderRadius:10,
+                  borderLeft:`3px solid ${A.root.colour}`}}>
+                  <div style={{fontSize:10,fontWeight:700,color:A.root.colour,textTransform:"uppercase",
+                    letterSpacing:"0.08em",marginBottom:6}}>🔧 Proposed fix</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.ink,lineHeight:1.4,marginBottom:4}}>{rc.fix}</div>
+                  <div style={{fontSize:12,color:C.ink2,lineHeight:1.65}}>{rc.proposed}</div>
                 </div>
 
                 {/* breakdown + sparkline */}
-                <div style={{display:"flex",gap:20}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-                      letterSpacing:"0.07em",marginBottom:10}}>How reports are failing</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                    letterSpacing:"0.07em",marginBottom:12}}>How reports are failing</div>
+                  <div style={{display:"flex",gap:24}}>
+                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:10}}>
                       {rc.breakdown.map((b,i)=>{
                         const pct=Math.round(b.n/rc.records*100);
                         return(
                           <div key={i}>
-                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                               <span style={{fontSize:12,color:C.ink}}>{b.label}</span>
-                              <span style={{fontSize:12,fontWeight:700,color:C.red}}>{b.n.toLocaleString()} <span style={{fontWeight:400,color:C.ink3}}>({pct}%)</span></span>
+                              <span style={{fontSize:12,fontWeight:700,color:col}}>{b.n.toLocaleString()} <span style={{fontWeight:400,color:C.ink3}}>({pct}%)</span></span>
                             </div>
-                            <div style={{height:6,background:C.muted,borderRadius:999,overflow:"hidden"}}>
-                              <div style={{width:`${pct}%`,height:"100%",
-                                background:rc.sev==="high"?C.red:C.amber,borderRadius:999}}/>
+                            <div style={{height:7,background:C.muted,borderRadius:999,overflow:"hidden"}}>
+                              <div style={{width:`${pct}%`,height:"100%",background:col,borderRadius:999}}/>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                  <div style={{width:170,flexShrink:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-                      letterSpacing:"0.07em",marginBottom:10}}>Breaks per day (7 days)</div>
-                    <svg width="170" height="60" style={{display:"block"}}>
-                      {(()=>{
-                        const vals=rc.dailyBreaks;
-                        const mx=Math.max(...vals),mn=Math.min(...vals);
-                        const xs=vals.map((_,i)=>8+i*(154/6));
-                        const ys=vals.map(v=>50-(v-mn)/(mx-mn||1)*38);
-                        const pts=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
-                        const fill=xs.map((x,i)=>`${x},${ys[i]}`).join(" ")+` ${xs[vals.length-1]},54 8,54`;
-                        const col=rc.sev==="high"?C.red:C.amber;
-                        return(<>
-                          <polyline points={fill} fill={`${col}18`} stroke="none"/>
-                          <polyline points={pts} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round"/>
-                          {xs.map((x,i)=>(
-                            <circle key={i} cx={x} cy={ys[i]} r={i===vals.length-1?4:2.5}
-                              fill={i===vals.length-1?col:"#fff"} stroke={col} strokeWidth="1.5"/>
-                          ))}
-                          {["M","T","W","T","F","S","S"].map((d,i)=>(
-                            <text key={i} x={xs[i]} y={60} textAnchor="middle" fontSize="8" fill={C.ink3}>{d}</text>
-                          ))}
-                        </>);
-                      })()}
-                    </svg>
+                    <div style={{width:160,flexShrink:0}}>
+                      <div style={{fontSize:10,color:C.ink3,fontWeight:600,textTransform:"uppercase",
+                        letterSpacing:"0.07em",marginBottom:8}}>Breaks / day (7d)</div>
+                      <svg width="160" height="60" style={{display:"block"}}>
+                        {(()=>{
+                          const vals=rc.dailyBreaks;
+                          const mx=Math.max(...vals),mn=Math.min(...vals);
+                          const xs=vals.map((_,i)=>8+i*(144/6));
+                          const ys=vals.map(v=>50-(v-mn)/(mx-mn||1)*36);
+                          const pts=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
+                          const fill=xs.map((x,i)=>`${x},${ys[i]}`).join(" ")+` ${xs[vals.length-1]},54 8,54`;
+                          return(<>
+                            <polyline points={fill} fill={`${col}18`} stroke="none"/>
+                            <polyline points={pts} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round"/>
+                            {xs.map((x,i)=>(<circle key={i} cx={x} cy={ys[i]} r={i===vals.length-1?4:2.5}
+                              fill={i===vals.length-1?col:"#fff"} stroke={col} strokeWidth="1.5"/>))}
+                            {["M","T","W","T","F","S","S"].map((d,i)=>(
+                              <text key={i} x={xs[i]} y={60} textAnchor="middle" fontSize="8" fill={C.ink3}>{d}</text>
+                            ))}
+                          </>);
+                        })()}
+                      </svg>
+                    </div>
                   </div>
                 </div>
 
-                {/* counterparties + meta */}
-                <div style={{display:"flex",gap:20}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-                      letterSpacing:"0.07em",marginBottom:8}}>Affected trading partners</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                      {rc.counterparties.map((cp,i)=>(
-                        <span key={i} style={{padding:"5px 12px",borderRadius:999,background:"#fff",
-                          border:`1px solid ${C.line2}`,fontSize:12,color:C.ink,fontWeight:500}}>{cp}</span>
-                      ))}
-                    </div>
+                {/* trading partners */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                    letterSpacing:"0.07em",marginBottom:10}}>Affected trading partners</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                    {rc.counterparties.map((cp,i)=>(
+                      <span key={i} style={{padding:"6px 14px",borderRadius:999,background:C.muted,
+                        border:`1px solid ${C.line}`,fontSize:12,color:C.ink,fontWeight:500}}>{cp}</span>
+                    ))}
                   </div>
-                  <div style={{width:200,flexShrink:0}}>
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {[
-                        ["Field",rc.fieldLabel],
-                        ["Asset class",rc.assetClass],
-                        ["Detected",rc.period.split("–").pop().trim()],
-                      ].map(([l,v])=>(
-                        <div key={l} style={{display:"flex",gap:8,padding:"6px 10px",background:"#fff",
-                          borderRadius:7,border:`1px solid ${C.line}`}}>
-                          <span style={{fontSize:10,color:C.ink3,fontWeight:700,textTransform:"uppercase",
-                            letterSpacing:"0.06em",width:70,flexShrink:0,paddingTop:1}}>{l}</span>
-                          <span style={{fontSize:11,fontWeight:600,color:C.ink,lineHeight:1.4}}>{v}</span>
-                        </div>
-                      ))}
+                </div>
+
+                {/* meta tiles */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[
+                    ["Affected field",rc.fieldLabel],
+                    ["Asset class",rc.assetClass],
+                    ["How it transforms",rc.transformType],
+                    ["Detection window",rc.period],
+                  ].map(([l,v])=>(
+                    <div key={l} style={{padding:"10px 12px",background:C.muted,borderRadius:8,border:`1px solid ${C.line}`}}>
+                      <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",
+                        letterSpacing:"0.07em",marginBottom:4}}>{l}</div>
+                      <div style={{fontSize:12,fontWeight:600,color:C.ink,lineHeight:1.4}}>{v}</div>
                     </div>
-                  </div>
+                  ))}
                 </div>
 
                 {/* evidence */}
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-                    letterSpacing:"0.07em",marginBottom:8}}>Why we're confident</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    letterSpacing:"0.07em",marginBottom:10}}>Why we're confident</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {rc.evidence.map((e,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",
-                        background:"#fff",border:`1px solid ${C.line}`,borderRadius:7}}>
-                        <span style={{color:C.green,fontWeight:800,flexShrink:0,fontSize:13}}>✓</span>
-                        <span style={{fontSize:12,color:C.ink,flex:1,lineHeight:1.6}}>{e}</span>
+                      <div key={i} style={{display:"flex",gap:12,padding:"10px 14px",
+                        background:C.muted,border:`1px solid ${C.line}`,borderRadius:8}}>
+                        <span style={{color:C.green,fontWeight:800,flexShrink:0,fontSize:14}}>✓</span>
+                        <span style={{fontSize:12,color:C.ink,flex:1,lineHeight:1.65}}>{e}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-            )}
-          </Card>
+            </div>
           );
-        })}
-      </div>
+        })()}
+      </div>{/* end body split */}
 
       {/* footer */}
       <div style={{padding:"14px 40px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",gap:12}}>
