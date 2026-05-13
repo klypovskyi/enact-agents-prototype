@@ -97,126 +97,132 @@ const ENTITY = { name:"Whale Capital", lei:"6PTKHDJ8HDUF78PFWH30", type:"Electro
 // ── Root cause data (DFR lineage — Whale Capital) ────────────────────────────────
 const ROOT_CAUSES = [
   { id:"RC1", sev:"high", confidence:89,
-    title:"broker_lei_ref_dict out of date — 3 counterparties missing from DFR lookup",
+    title:"Counterparty IDs can't be found for 3 trading partners",
+    summary:"415 trade reports are failing because the LEI lookup table hasn't been updated since 3 new counterparties were onboarded in January. The system can't match them to a valid ID.",
     cluster:"Counterparty 2 LEI lookup failure — FX Swap/Forward",
     entity:"Whale Capital", records:415,
     assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
-    fieldRef:"1_14_counterparty_2", fieldLabel:"Counterparty 2 identifier",
-    transformType:"Formatting (CLIENT_ID → LEI via dict lookup)",
+    fieldRef:"1_14_counterparty_2", fieldLabel:"Counterparty 2 Identifier",
+    transformType:"Lookup (Client ID → Legal Entity Identifier)",
     counterparties:["Alderton Capital International","Castleford Bank Plc","Meridian Securities & Co"],
-    breakdown:[{label:"LEI not found in dict",n:287},{label:"Incorrect LEI returned",n:96},{label:"CP2 field blank after lookup",n:32}],
+    breakdown:[{label:"ID not found in lookup table",n:287},{label:"Outdated ID returned",n:96},{label:"Field left blank",n:32}],
     dailyBreaks:[58,63,61,57,71,55,48],
     period:"14 Jan 2026 – 09 May 2026",
-    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","CLIENT_ID → PartyFile.PartyID","broker_lei_ref_dict","1_14_counterparty_2","TRACC trade repository"], breakAt:2,
-    proposed:"Update broker_lei_ref_dict to include LEIs for Alderton Capital International (XXALD0C4P17B2F9QR341), Castleford Bank Plc (XXCST3N8M2K6L0P5W819) and Meridian Securities & Co (XXMRD7H1S4T9V2X0K276). Re-derive 1_14_counterparty_2 for all 415 DFR_Reporting_RAW_Feed.Swap_Forward records.",
+    chain:["Trade Feed (DFR)","Client ID lookup","LEI Reference Table","Counterparty 2 ID field","TRACC Repository"], breakAt:2,
+    proposed:"Add the 3 missing counterparties to the LEI reference table, then re-generate the Counterparty 2 ID field for all 415 affected records and resubmit.",
+    fix:"Update LEI reference table · Re-derive Counterparty 2 ID · Resubmit 415 records",
     evidence:[
-      "89% of CP2 LEI failures trace to the same 3 missing entries in broker_lei_ref_dict",
-      "broker_lei_ref_dict last refreshed 14 Jan 2026 — 3 counterparties onboarded since with no dict update",
-      "CLIENT_ID → PartyFile.PartyID → TradePartyValue chain confirmed intact; failure is exclusively at dict lookup",
-      "287 records: LEI not found (null returned); 96 records: stale LEI from pre-merger entity; 32 records: CP2 field written blank",
-      "Cascade risk: collateral position reports referencing same LEIs — assessed low (separate pipeline)",
+      "89% of failures trace to the same 3 entries missing from the LEI reference table",
+      "Table last updated 14 Jan 2026 — 3 counterparties onboarded since then with no table refresh",
+      "The trade ID lookup chain itself is working correctly — failure is only at the final table lookup step",
+      "287 records: no match found; 96 records: stale pre-merger ID returned; 32 records: field written blank",
+      "Low cascade risk: collateral reports use a separate lookup pipeline, unaffected",
     ]},
   { id:"RC2", sev:"high", confidence:78,
-    title:"DFR intragroup_flag not consulted in 1_17 financial entity indicator derivation",
+    title:"Intragroup trades are misclassified — entity type flag ignored",
+    summary:"184 reports have the wrong counterparty classification because the system's derivation logic doesn't check whether a trade is intragroup. For these trades, the financial entity indicator should be set to TRUE but isn't.",
     cluster:"Counterparty 2 financial entity indicator mismatch — intragroup trades",
     entity:"Whale Capital", records:184,
     assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
-    fieldRef:"1_17_counterparty_2_financial_entity_indicator", fieldLabel:"CP2 financial entity indicator",
-    transformType:"Derived (conditional logic — intragroup_flag source)",
+    fieldRef:"1_17_counterparty_2_financial_entity_indicator", fieldLabel:"CP2 Financial Entity Indicator",
+    transformType:"Derived field (conditional rule — intragroup flag not consulted)",
     counterparties:["Hartwell Lynch International","Pemberton Chase Bank N.A."],
-    breakdown:[{label:"Should be TRUE, reported blank",n:141},{label:"Should be TRUE, reported FALSE",n:43}],
+    breakdown:[{label:"Indicator blank — should be TRUE",n:141},{label:"Indicator FALSE — should be TRUE",n:43}],
     dailyBreaks:[22,31,18,29,25,34,25],
     period:"14 Jan 2026 – 09 May 2026",
-    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","TradePartyValue / intragroup_flag","Derived logic → 1_17","1_17_counterparty_2_financial_entity_indicator","TRACC trade repository"], breakAt:2,
-    proposed:"Add derivation rule: where intragroup_flag = TRUE in DFR_Reporting_RAW_Feed.Swap_Forward, set 1_17_counterparty_2_financial_entity_indicator = TRUE. Apply retroactively to 184 affected FX records for Hartwell Lynch International and Pemberton Chase Bank N.A.",
+    chain:["Trade Feed (DFR)","Intragroup flag + Counterparty value","Classification rule","Financial Entity Indicator field","TRACC Repository"], breakAt:2,
+    proposed:"Add a rule to the derivation logic: if a trade is flagged as intragroup, set the Financial Entity Indicator to TRUE. Apply retroactively to 184 records for Hartwell Lynch International and Pemberton Chase Bank N.A.",
+    fix:"Add intragroup derivation rule · Correct 184 records · Resubmit",
     evidence:[
-      "78% of 1_17 failures occur on trades where intragroup_flag = TRUE in the DFR source record",
-      "Derived logic for 1_17 currently references TradePartyValue LEI lookup only — intragroup_flag is present on the same source row but not referenced",
-      "Confirmed absent in lineage mapping: no conditional branch on intragroup_flag exists in the 1_17 derivation spec",
-      "141 records: field blank where TRUE required; 43 records: FALSE where TRUE required (intragroup not flagged in source)",
-      "Cascade risk: counterparty reconciliation score expected to deteriorate for Hartwell Lynch (medium) — resolved by fix",
+      "78% of classification errors occur on trades already marked as intragroup in the source data",
+      "The derivation rule doesn't reference the intragroup flag at all — confirmed missing from the rule specification",
+      "The intragroup flag is present on every affected source row and accessible — just not being checked",
+      "141 records: indicator blank where TRUE required; 43 records: indicator set to FALSE instead of TRUE",
+      "Medium cascade risk: counterparty reconciliation scores for Hartwell Lynch affected — resolved once fix applied",
     ]},
   { id:"RC3", sev:"medium", confidence:74,
-    title:"DFR Original_TargetAmount passed to 1_31 as 2dp — no precision expansion in formatting step",
+    title:"Notional amounts are being rounded — precision too low for submission",
+    summary:"4,812 reports contain notional amounts rounded to 2 decimal places. Regulators require 6 decimal places. The formatting pipeline passes the value straight through without expanding the precision.",
     cluster:"Notional amount precision drift — leg 1 (FX Swap/Forward)",
     entity:"Whale Capital", records:4812,
     assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
-    fieldRef:"1_31_notional_amt_leg_1", fieldLabel:"Notional amount leg 1",
-    transformType:"Formatting (Original_TargetAmount → 1_31, 1-1 mapping)",
+    fieldRef:"1_31_notional_amt_leg_1", fieldLabel:"Notional Amount — Leg 1",
+    transformType:"Formatting (direct mapping, no precision conversion applied)",
     counterparties:["VBK AG","Castleford Bank Plc","Alderton Capital International","Rheinfeld Bank AG"],
-    breakdown:[{label:"Rounded to 2dp (truncated)",n:4812}],
+    breakdown:[{label:"Notional rounded to 2 decimal places",n:4812}],
     dailyBreaks:[690,701,688,712,695,714,612],
-    period:"Onset estimated Q4 2025 — ongoing; detected 09 May 2026",
-    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","Original_TargetAmount (2dp native)","Formatting step → 1_31","1_31_notional_amt_leg_1","TRACC trade repository"], breakAt:2,
-    proposed:"Add precision expansion in DFR formatting pipeline: convert Original_TargetAmount from 2dp to 6dp before writing to 1_31_notional_amt_leg_1. Apply to all FX Swap/Forward records. Separately assess 1_31_notional_amt_leg_2 (Original_SettlementAmount — same pipeline, same issue).",
+    period:"Estimated onset Q4 2025 — ongoing; detected 09 May 2026",
+    chain:["Trade Feed (DFR)","Notional amount (2dp)","Format step — no precision expand","Notional Amount Leg 1 field","TRACC Repository"], breakAt:2,
+    proposed:"Add a precision conversion step in the formatting pipeline: expand the notional amount from 2dp to 6dp before submission. Apply to all FX Swap/Forward records. Also check Leg 2 notional — it uses the same pipeline and likely has the same issue.",
+    fix:"Add 6dp precision step · Fix 4,812 records · Check Leg 2 separately",
     evidence:[
-      "100% of 1_31 precision failures share the same 2dp rounding pattern — unique to DFR Original_TargetAmount field",
-      "DFR → 1_31 defined as 1-1 Formatting transformation with no precision step — confirmed in lineage mapping config",
-      "TRACC rejects require 6dp precision for notional fields; 2dp submissions fail cross-regime tolerance check",
-      "Original_SettlementAmount (leg 2 source) uses the same DFR formatting pipeline — 1_31_notional_amt_leg_2 at high risk of same defect",
-      "Cascade risk: valuation tolerance breach on 312 records against counterparty submissions (low–medium)",
+      "Every single precision failure follows the same 2dp rounding pattern — all trace to the same source field",
+      "The formatting pipeline maps the value directly with no conversion step — confirmed in the pipeline spec",
+      "TRACC rejects submissions where notional precision is below 6dp",
+      "The Leg 2 notional uses the same pipeline — likely affected by the same defect",
+      "Low–medium cascade risk: valuation tolerance breach possible on 312 records against counterparty submissions",
     ]},
 ];
 
 // ── Remediation fixes ────────────────────────────────────────────────────────
 const INITIAL_FIXES = [
-  { id:"FX-RC1", rcId:"RC1", title:"Update broker_lei_ref_dict",
-    records:415, confidence:89, entity:"Whale Capital", field:"1_14_counterparty_2",
-    desc:"Update broker_lei_ref_dict with correct LEIs for 3 counterparties onboarded since Jan 2026. Re-derive 1_14_counterparty_2 for 415 DFR_Reporting_RAW_Feed.Swap_Forward records." },
-  { id:"FX-RC2", rcId:"RC2", title:"Add intragroup_flag → 1_17 derivation rule",
-    records:184, confidence:78, entity:"Whale Capital", field:"1_17_counterparty_2_financial_entity_indicator",
-    desc:"Add rule: where intragroup_flag = TRUE in DFR_Reporting_RAW_Feed.Swap_Forward, set 1_17_counterparty_2_financial_entity_indicator = TRUE. Apply retroactively to 184 FX records." },
-  { id:"FX-RC3", rcId:"RC3", title:"Apply 6dp precision to Original_TargetAmount → 1_31",
-    records:4812, confidence:74, entity:"Whale Capital", field:"1_31_notional_amt_leg_1",
-    desc:"Add precision expansion in DFR formatting pipeline: expand Original_TargetAmount from 2dp to 6dp before mapping to 1_31_notional_amt_leg_1 for 4,812 FX Swap_Forward records." },
+  { id:"FX-RC1", rcId:"RC1", title:"Fix counterparty ID lookup table",
+    records:415, confidence:89, entity:"Whale Capital", field:"Counterparty 2 Identifier",
+    desc:"Add 3 missing counterparties to the LEI reference table and re-generate the Counterparty 2 ID for all 415 affected FX trade reports." },
+  { id:"FX-RC2", rcId:"RC2", title:"Fix intragroup trade classification",
+    records:184, confidence:78, entity:"Whale Capital", field:"CP2 Financial Entity Indicator",
+    desc:"Add a derivation rule so intragroup trades correctly set the Financial Entity Indicator to TRUE. Retroactively correct 184 FX trade reports." },
+  { id:"FX-RC3", rcId:"RC3", title:"Fix notional amount precision",
+    records:4812, confidence:74, entity:"Whale Capital", field:"Notional Amount — Leg 1",
+    desc:"Add a precision conversion step so notional amounts are expanded to 6 decimal places before submission. Applies to 4,812 FX trade reports. Leg 2 should be assessed separately." },
 ];
 
 // cascade fix auto-added when FX-RC2 simulation detects downstream break
 const CASCADE_FIX = {
   id:"FX-RC4", rcId:"RC4", isCascade:true,
-  title:"Rebuild recon feed key after 1_17 financial entity indicator change",
-  records:92, confidence:81, entity:"Whale Capital", field:"Recon feed key",
-  desc:"Rebuild counterparty recon feed key after 1_17_counterparty_2_financial_entity_indicator derivation change. Backfill 92 affected DFR records.",
+  title:"Rebuild reconciliation feed key",
+  records:92, confidence:81, entity:"Whale Capital", field:"Counterparty recon feed key",
+  desc:"Rebuilds the counterparty reconciliation feed key after the classification fix. Affects 92 records where the key now mismatches.",
 };
 
 // root cause for cascade fix — found by mini RC agent
 const CASCADE_RC = {
   id:"RC4", confidence:83, sev:"high",
-  title:"Recon feed key builder includes 1_17 financial entity indicator — not rebuilt after derivation change",
-  cluster:"Downstream cascade from CP2 financial entity indicator fix — FX-RC2",
+  title:"Reconciliation feed key not rebuilt after classification change",
+  cluster:"Downstream cascade from intragroup classification fix",
   entity:"Whale Capital", records:92,
-  chain:["1_17_counterparty_2_financial_entity_indicator","Recon key builder (DFR)","Recon feed key","TRACC trade repository"], breakAt:1,
-  proposed:"Rebuild DFR counterparty recon feed key after 1_17 derivation change. Re-run key-builder for 92 affected Whale Capital records.",
+  chain:["Financial Entity Indicator field","Recon key builder","Recon feed key","TRACC Repository"], breakAt:1,
+  proposed:"Rebuild the counterparty reconciliation feed key for 92 affected records after the classification change.",
   evidence:[
-    "Recon feed key builder includes 1_17 as composite component — confirmed in DFR key-builder config",
-    "Financial entity indicator change (FALSE → TRUE) triggers key mismatch on 92 of 184 records",
-    "No automated rebuild step exists after 1_17 derivation — manual trigger required",
+    "The reconciliation feed key includes the Financial Entity Indicator as one of its components",
+    "Changing the indicator from FALSE to TRUE causes a key mismatch on 92 of the 184 corrected records",
+    "The key-builder doesn't automatically re-run after the indicator changes — it needs to be triggered manually",
   ],
 };
 
 // ── Simulation results ────────────────────────────────────────────────────────
 const SIM_RESULTS_CASCADE = {
   "FX-RC1":{ status:"safe", ftr:96, readiness:"+6pts",
-    detail:"415 records · field 1_14_counterparty_2 · safe to submit.",
-    note:"Warning: 1_15_counterparty_2_identifier_source re-evaluated for 89 records — confirm LEI source codes before submission." },
+    detail:"415 records corrected · Counterparty IDs re-generated and validated · Safe to resubmit.",
+    note:"Note: the identifier source field was also re-evaluated for 89 records — confirm source codes look correct before submitting." },
   "FX-RC2":{ status:"cascade", ftr:91, readiness:"—",
-    detail:"184 records · 1_17_counterparty_2_financial_entity_indicator corrected — but downstream recon feed key now mismatches on 92 records.",
-    cascadeChain:["DFR_Reporting_RAW_Feed","intragroup_flag","1_17 derivation","Recon feed key","DTCC"],
+    detail:"184 records corrected · but this change broke something downstream. The counterparty reconciliation feed key no longer matches for 92 records — this needs to be fixed first.",
+    cascadeChain:["Trade Feed (DFR)","Intragroup flag","Classification rule","Recon feed key","TRACC"],
     cascadeFix: CASCADE_FIX },
   "FX-RC3":{ status:"human", ftr:88, readiness:"+3pts",
-    detail:"4,812 records · field 1_31_notional_amt_leg_1.",
-    reason:"Precision change on 1_31 may breach valuation tolerance against counterparty submissions on 312 records. 1_31_notional_amt_leg_2 (Original_SettlementAmount) uses same DFR pipeline — check if same precision fix is required on leg 2." },
+    detail:"4,812 records affected · Needs a human decision before proceeding.",
+    reason:"Changing the notional precision may cause a valuation mismatch against what 312 counterparties submitted. Someone needs to review this before resubmitting. Also — the Leg 2 notional uses the same pipeline and likely has the same problem." },
   "FX-RC4":{ status:"safe", ftr:81, readiness:"+2pts",
-    detail:"92 records · DFR recon feed key rebuilt and resynced. Cascade from FX-RC2 fully resolved." },
+    detail:"92 records fixed · Reconciliation feed key rebuilt and re-synced · Cascade from the classification fix fully resolved." },
 };
 const SIM_RESULTS_CLEAN = {
   "FX-RC1":{ status:"safe", ftr:96, readiness:"+6pts",
-    detail:"415 records · 1_14_counterparty_2 re-derived · first-time-right 96% · safe to submit." },
+    detail:"415 records corrected · Counterparty IDs re-generated · 96% first-time-right · Safe to resubmit." },
   "FX-RC2":{ status:"safe", ftr:91, readiness:"+3pts",
-    detail:"184 records · 1_17_counterparty_2_financial_entity_indicator corrected · counterparty recon unaffected · safe to submit." },
+    detail:"184 records corrected · Classification updated · Reconciliation feed unaffected · Safe to resubmit." },
   "FX-RC3":{ status:"human", ftr:88, readiness:"+3pts",
-    detail:"4,812 records · field 1_31_notional_amt_leg_1.",
-    reason:"Precision change on 1_31 may breach valuation tolerance against counterparty submissions on 312 records. Compliance sign-off required before back-reporting." },
+    detail:"4,812 records affected · Needs a human decision before proceeding.",
+    reason:"Changing the notional precision may cause a valuation mismatch on 312 records against counterparty submissions. Compliance sign-off is required before resubmitting." },
 };
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -697,112 +703,144 @@ const ReviewRoot=({onNext,onCancel})=>{
         {ROOT_CAUSES.map(rc=>{
           const isSel=selected.has(rc.id);
           return(
-          <Card key={rc.id} padding={20} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
-            style={{borderColor:!isSel?C.line:openId===rc.id?A.root.colour+"66":C.line,
-              opacity:isSel?1:0.55,transition:"opacity 180ms ease"}}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:16}}>
+          <Card key={rc.id} padding={0} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
+            style={{borderColor:!isSel?C.line:openId===rc.id?A.root.colour+"99":C.line,
+              opacity:isSel?1:0.5,transition:"opacity 200ms ease",overflow:"hidden"}}>
 
-              {/* selection toggle */}
-              <div onClick={e=>toggleSel(rc.id,e)}
-                style={{width:22,height:22,borderRadius:999,flexShrink:0,marginTop:4,cursor:"pointer",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  background:isSel?C.green:"#fff",
-                  border:`2px solid ${isSel?C.green:C.line2}`,
-                  transition:"all 160ms ease",boxShadow:isSel?`0 0 0 3px ${C.green}22`:"none"}}>
-                {isSel&&<span style={{color:"#fff",fontSize:11,fontWeight:800,lineHeight:1}}>✓</span>}
+            {/* card top strip — severity colour */}
+            <div style={{height:3,background:rc.sev==="high"?C.red:rc.sev==="medium"?C.amber:C.blue,borderRadius:"9px 9px 0 0"}}/>
+
+            <div style={{padding:"18px 20px"}}>
+              {/* top row: select + badges + chevron */}
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                {/* selection circle */}
+                <div onClick={e=>toggleSel(rc.id,e)}
+                  style={{width:22,height:22,borderRadius:999,flexShrink:0,cursor:"pointer",
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    background:isSel?C.green:"#fff",
+                    border:`2px solid ${isSel?C.green:C.line2}`,
+                    transition:"all 160ms ease",boxShadow:isSel?`0 0 0 3px ${C.green}22`:"none"}}>
+                  {isSel&&<span style={{color:"#fff",fontSize:10,fontWeight:800,lineHeight:1}}>✓</span>}
+                </div>
+                <Sev level={rc.sev}/>
+                <span style={{fontSize:10,color:C.ink3,fontWeight:700,letterSpacing:"0.05em"}}>{rc.id}</span>
+                <span style={{fontSize:11,color:C.ink3}}>·</span>
+                <span style={{fontSize:11,color:C.ink2}}>{rc.assetClass}</span>
+                {!isSel&&<Pill bg={C.muted} fg={C.ink3} style={{marginLeft:4}}>Deferred</Pill>}
+                <div style={{flex:1}}/>
+                <span style={{fontSize:16,color:C.ink3,transition:"transform 140ms ease",
+                  transform:openId===rc.id?"rotate(180deg)":"none"}}>▾</span>
               </div>
 
-              <Donut value={rc.confidence} colour={isSel?A.root.colour:C.ink3} size={72} label="Conf"/>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}>
-                  <Sev level={rc.sev}/>
-                  <span style={{fontSize:11,color:C.ink3,fontWeight:600}}>{rc.id}</span>
-                  <Pill bg={C.blueT2} fg={C.blue}>{rc.records.toLocaleString()} records · {rc.entity}</Pill>
-                  {!isSel&&<Pill bg={C.muted} fg={C.ink3}>Deferred</Pill>}
+              {/* main content row */}
+              <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+
+                {/* big record count */}
+                <div style={{flexShrink:0,width:88,textAlign:"center"}}>
+                  <div style={{fontSize:34,fontWeight:800,color:rc.sev==="high"?C.red:C.amber,
+                    letterSpacing:"-0.03em",lineHeight:1}}>{rc.records.toLocaleString()}</div>
+                  <div style={{fontSize:10,color:C.ink3,fontWeight:600,marginTop:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>reports affected</div>
                 </div>
-                <div style={{fontSize:16,fontWeight:700,letterSpacing:"-0.01em",marginBottom:10}}>{rc.title}</div>
-                {/* lineage chain */}
-                <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:5}}>
-                  {rc.chain.map((step,j,arr)=>(
-                    <React.Fragment key={j}>
-                      <div style={{padding:"4px 10px",borderRadius:6,
-                        background:j===rc.breakAt?C.redBg:"#fff",
-                        border:`1px solid ${j===rc.breakAt?C.red:C.line}`,
-                        fontSize:10,fontWeight:600,
-                        color:j===rc.breakAt?C.red:C.ink2,position:"relative"}}>
-                        {j===rc.breakAt&&"⚠ "}{step}
-                        {j===rc.breakAt&&<span style={{position:"absolute",top:-9,right:-6,background:C.red,color:"#fff",fontSize:8,fontWeight:700,padding:"1px 5px",borderRadius:999}}>break</span>}
-                      </div>
-                      {j<arr.length-1&&<span style={{color:C.ink3,fontSize:12}}>→</span>}
-                    </React.Fragment>
-                  ))}
+
+                {/* title + summary + chain */}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:15,fontWeight:700,color:C.ink,lineHeight:1.35,marginBottom:6,letterSpacing:"-0.01em"}}>{rc.title}</div>
+                  <div style={{fontSize:12,color:C.ink2,lineHeight:1.6,marginBottom:12}}>{rc.summary}</div>
+
+                  {/* readable lineage chain */}
+                  <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:4}}>
+                    {rc.chain.map((step,j,arr)=>(
+                      <React.Fragment key={j}>
+                        <div style={{
+                          padding:"3px 9px",borderRadius:5,
+                          background:j===rc.breakAt?C.redBg:C.muted,
+                          border:`1px solid ${j===rc.breakAt?C.red+"66":C.line}`,
+                          fontSize:10,fontWeight:600,
+                          color:j===rc.breakAt?C.red:C.ink2,
+                          position:"relative",whiteSpace:"nowrap"}}>
+                          {j===rc.breakAt&&<span style={{marginRight:4}}>⚠</span>}{step}
+                          {j===rc.breakAt&&<span style={{
+                            position:"absolute",top:-8,right:-4,
+                            background:C.red,color:"#fff",
+                            fontSize:7,fontWeight:800,padding:"1px 4px",borderRadius:999,
+                            textTransform:"uppercase",letterSpacing:"0.04em"}}>break</span>}
+                        </div>
+                        {j<arr.length-1&&<span style={{color:C.line2,fontSize:11,fontWeight:600}}>→</span>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                {/* confidence donut */}
+                <div style={{flexShrink:0,textAlign:"center"}}>
+                  <Donut value={rc.confidence} colour={isSel?A.root.colour:C.ink3} size={64} label="Conf"/>
                 </div>
               </div>
-              <span style={{fontSize:18,color:C.ink3,transition:"transform 140ms ease",transform:openId===rc.id?"rotate(180deg)":"none"}}>▾</span>
             </div>
 
             {/* expanded detail */}
             {openId===rc.id&&(
-              <div className="slideIn" style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${C.line}`,display:"flex",flexDirection:"column",gap:16}}>
+              <div className="slideIn" style={{borderTop:`1px solid ${C.line}`,
+                padding:"20px 20px 24px",display:"flex",flexDirection:"column",gap:20,
+                background:"#FAFBFC"}}>
 
-                {/* meta row */}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-                  {[
-                    ["Field",rc.fieldRef],
-                    ["Asset class",rc.assetClass],
-                    ["Regime",rc.regime],
-                    ["Transform",rc.transformType],
-                  ].map(([l,v])=>(
-                    <div key={l} style={{padding:"8px 10px",background:C.muted,borderRadius:7,border:`1px solid ${C.line}`}}>
-                      <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>{l}</div>
-                      <div style={{fontSize:11,fontWeight:600,color:C.ink,wordBreak:"break-word",lineHeight:1.3}}>{v}</div>
-                    </div>
-                  ))}
+                {/* what to fix callout */}
+                <div style={{padding:"12px 16px",background:C.blueT2,borderRadius:8,
+                  borderLeft:`3px solid ${A.root.colour}`,
+                  display:"flex",alignItems:"flex-start",gap:10}}>
+                  <span style={{fontSize:16,flexShrink:0}}>🔧</span>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:A.root.colour,textTransform:"uppercase",
+                      letterSpacing:"0.07em",marginBottom:4}}>Proposed fix</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.ink,lineHeight:1.5}}>{rc.fix}</div>
+                    <div style={{fontSize:12,color:C.ink2,marginTop:4,lineHeight:1.6}}>{rc.proposed}</div>
+                  </div>
                 </div>
 
-                {/* failure breakdown + sparkline side by side */}
-                <div style={{display:"flex",gap:14}}>
-                  {/* breakdown bars */}
+                {/* breakdown + sparkline */}
+                <div style={{display:"flex",gap:20}}>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Failure breakdown</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                      letterSpacing:"0.07em",marginBottom:10}}>How reports are failing</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {rc.breakdown.map((b,i)=>{
                         const pct=Math.round(b.n/rc.records*100);
                         return(
                           <div key={i}>
-                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                              <span style={{fontSize:11,color:C.ink}}>{b.label}</span>
-                              <span style={{fontSize:11,fontWeight:700,color:C.red}}>{b.n.toLocaleString()}</span>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                              <span style={{fontSize:12,color:C.ink}}>{b.label}</span>
+                              <span style={{fontSize:12,fontWeight:700,color:C.red}}>{b.n.toLocaleString()} <span style={{fontWeight:400,color:C.ink3}}>({pct}%)</span></span>
                             </div>
-                            <div style={{height:5,background:C.muted,borderRadius:999,overflow:"hidden"}}>
-                              <div style={{width:`${pct}%`,height:"100%",background:C.red,borderRadius:999,opacity:.7}}/>
+                            <div style={{height:6,background:C.muted,borderRadius:999,overflow:"hidden"}}>
+                              <div style={{width:`${pct}%`,height:"100%",
+                                background:rc.sev==="high"?C.red:C.amber,borderRadius:999}}/>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-
-                  {/* 7-day sparkline */}
-                  <div style={{width:160,flexShrink:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Daily breaks (7d)</div>
-                    <svg width="160" height="54" style={{display:"block"}}>
+                  <div style={{width:170,flexShrink:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                      letterSpacing:"0.07em",marginBottom:10}}>Breaks per day (7 days)</div>
+                    <svg width="170" height="60" style={{display:"block"}}>
                       {(()=>{
                         const vals=rc.dailyBreaks;
                         const mx=Math.max(...vals),mn=Math.min(...vals);
-                        const xs=vals.map((_,i)=>10+i*(140/6));
-                        const ys=vals.map(v=>48-(v-mn)/(mx-mn||1)*38);
+                        const xs=vals.map((_,i)=>8+i*(154/6));
+                        const ys=vals.map(v=>50-(v-mn)/(mx-mn||1)*38);
                         const pts=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
-                        const fill=xs.map((x,i)=>`${x},${ys[i]}`).join(" ")+` ${xs[vals.length-1]},50 10,50`;
+                        const fill=xs.map((x,i)=>`${x},${ys[i]}`).join(" ")+` ${xs[vals.length-1]},54 8,54`;
+                        const col=rc.sev==="high"?C.red:C.amber;
                         return(<>
-                          <polyline points={fill} fill={`${C.red}18`} stroke="none"/>
-                          <polyline points={pts} fill="none" stroke={C.red} strokeWidth="1.8" strokeLinejoin="round"/>
+                          <polyline points={fill} fill={`${col}18`} stroke="none"/>
+                          <polyline points={pts} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round"/>
                           {xs.map((x,i)=>(
-                            <circle key={i} cx={x} cy={ys[i]} r={i===vals.length-1?3.5:2.5}
-                              fill={i===vals.length-1?C.red:"#fff"} stroke={C.red} strokeWidth="1.5"/>
+                            <circle key={i} cx={x} cy={ys[i]} r={i===vals.length-1?4:2.5}
+                              fill={i===vals.length-1?col:"#fff"} stroke={col} strokeWidth="1.5"/>
                           ))}
-                          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d,i)=>(
-                            <text key={i} x={xs[i]} y={54} textAnchor="middle" fontSize="7" fill={C.ink3}>{d}</text>
+                          {["M","T","W","T","F","S","S"].map((d,i)=>(
+                            <text key={i} x={xs[i]} y={60} textAnchor="middle" fontSize="8" fill={C.ink3}>{d}</text>
                           ))}
                         </>);
                       })()}
@@ -810,40 +848,49 @@ const ReviewRoot=({onNext,onCancel})=>{
                   </div>
                 </div>
 
-                {/* counterparties */}
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:7}}>Affected counterparties</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                    {rc.counterparties.map((cp,i)=>(
-                      <span key={i} style={{padding:"4px 10px",borderRadius:999,background:"#fff",
-                        border:`1px solid ${C.line2}`,fontSize:11,color:C.ink,fontWeight:500}}>{cp}</span>
-                    ))}
+                {/* counterparties + meta */}
+                <div style={{display:"flex",gap:20}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                      letterSpacing:"0.07em",marginBottom:8}}>Affected trading partners</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {rc.counterparties.map((cp,i)=>(
+                        <span key={i} style={{padding:"5px 12px",borderRadius:999,background:"#fff",
+                          border:`1px solid ${C.line2}`,fontSize:12,color:C.ink,fontWeight:500}}>{cp}</span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                {/* proposed fix */}
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,color:A.root.colour,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Proposed fix</div>
-                  <div style={{padding:12,background:C.blueT2,borderRadius:8,borderLeft:`3px solid ${A.root.colour}`,fontSize:12,color:C.ink,lineHeight:1.6}}>{rc.proposed}</div>
+                  <div style={{width:200,flexShrink:0}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {[
+                        ["Field",rc.fieldLabel],
+                        ["Asset class",rc.assetClass],
+                        ["Detected",rc.period.split("–").pop().trim()],
+                      ].map(([l,v])=>(
+                        <div key={l} style={{display:"flex",gap:8,padding:"6px 10px",background:"#fff",
+                          borderRadius:7,border:`1px solid ${C.line}`}}>
+                          <span style={{fontSize:10,color:C.ink3,fontWeight:700,textTransform:"uppercase",
+                            letterSpacing:"0.06em",width:70,flexShrink:0,paddingTop:1}}>{l}</span>
+                          <span style={{fontSize:11,fontWeight:600,color:C.ink,lineHeight:1.4}}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* evidence */}
                 <div>
-                  <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Evidence</div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                    letterSpacing:"0.07em",marginBottom:8}}>Why we're confident</div>
                   <div style={{display:"flex",flexDirection:"column",gap:5}}>
                     {rc.evidence.map((e,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"#fff",border:`1px solid ${C.line}`,borderRadius:7}}>
-                        <span style={{color:C.green,fontWeight:700,flexShrink:0}}>✓</span>
-                        <span style={{fontSize:12,color:C.ink,flex:1,lineHeight:1.55}}>{e}</span>
+                      <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",
+                        background:"#fff",border:`1px solid ${C.line}`,borderRadius:7}}>
+                        <span style={{color:C.green,fontWeight:800,flexShrink:0,fontSize:13}}>✓</span>
+                        <span style={{fontSize:12,color:C.ink,flex:1,lineHeight:1.6}}>{e}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* period */}
-                <div style={{display:"flex",gap:8,alignItems:"center",padding:"8px 12px",background:C.muted,borderRadius:7,border:`1px solid ${C.line}`}}>
-                  <span style={{fontSize:10,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Detection period</span>
-                  <span style={{fontSize:11,color:C.ink,fontWeight:600}}>{rc.period}</span>
                 </div>
               </div>
             )}
@@ -1115,8 +1162,8 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
             display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:15}}>S</div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation & Simulation</div>
-          <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Simulate proposed fixes · resolve cascades · generate readiness score</div>
+          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Remediation & Simulation</div>
+          <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Test each fix before applying — nothing changes until you say so</div>
         </div>
         <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root causes</Btn>
         <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
@@ -1128,8 +1175,8 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
         {/* LEFT: Remediation plan */}
         <div style={{width:400,borderRight:`1px solid ${C.line}`,display:"flex",flexDirection:"column",background:"#fff",flexShrink:0,overflow:"hidden"}}>
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted}}>
-            <div style={{fontSize:13,fontWeight:700}}>Remediation plan</div>
-            <div style={{fontSize:11,color:C.ink2,marginTop:2}}>{fixes.length} fixes · {fixes.reduce((s,f)=>s+f.records,0).toLocaleString()} records total</div>
+            <div style={{fontSize:13,fontWeight:700}}>Fixes to run</div>
+            <div style={{fontSize:11,color:C.ink2,marginTop:2}}>{fixes.length} proposed fixes · {fixes.reduce((s,f)=>s+f.records,0).toLocaleString()} reports to correct</div>
           </div>
 
           <div style={{flex:1,minHeight:0,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
@@ -1156,16 +1203,24 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
                     style={{padding:"12px 14px",cursor:"pointer",
                       background:fix.isCascade&&!res&&!rcDone?C.amberT:"#fff",
                       userSelect:"none"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                      <Pill bg={C.muted} fg={C.ink2} style={{fontSize:10}}>{fix.id}</Pill>
-                      {fix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ cascade fix</Pill>}
+                    {/* top badges row */}
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,fontWeight:700,color:C.ink3,letterSpacing:"0.04em"}}>{fix.id}</span>
+                      {fix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ Cascade fix</Pill>}
                       {res&&<Pill bg={statusBg(res.status)} fg={statusColour(res.status)}>{statusLabel(res.status)}</Pill>}
                       <div style={{marginLeft:"auto",fontSize:12,color:C.ink3,
                         transition:"transform 140ms ease",
                         transform:isExpanded?"rotate(180deg)":"none"}}>▾</div>
                     </div>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:4,lineHeight:1.4}}>{fix.title}</div>
-                    <div style={{fontSize:11,color:C.ink2,marginBottom:8}}>{fix.records.toLocaleString()} records · {fix.entity}</div>
+                    {/* record count + title */}
+                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
+                      <span style={{fontSize:24,fontWeight:800,color:res?statusColour(res.status):C.ink,
+                        letterSpacing:"-0.02em",lineHeight:1}}>{fix.records.toLocaleString()}</span>
+                      <span style={{fontSize:10,color:C.ink3,fontWeight:600,textTransform:"uppercase",
+                        letterSpacing:"0.05em"}}>reports</span>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:6,lineHeight:1.4,color:C.ink}}>{fix.title}</div>
+                    <div style={{fontSize:11,color:C.ink2,marginBottom:8,lineHeight:1.5}}>{fix.desc}</div>
                     {(canSim||res)&&<ConfBar value={confVal} colour={res?statusColour(res.status):C.blue}/>}
                   </div>
 
@@ -1174,18 +1229,18 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
                     background:C.muted,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <span style={{fontSize:10,color:C.ink3}}>{fix.field}</span>
                     {!res&&!isSim&&canSim&&(
-                      <Btn size="sm" variant="soft" onClick={e=>{e.stopPropagation();simulate(fix);}}>Simulate →</Btn>
+                      <Btn size="sm" variant="soft" onClick={e=>{e.stopPropagation();simulate(fix);}}>Run simulation →</Btn>
                     )}
                     {!res&&!isSim&&!canSim&&(
-                      <span style={{fontSize:10,color:C.ink2,fontStyle:"italic"}}>Analysis in progress…</span>
+                      <span style={{fontSize:10,color:C.ink2,fontStyle:"italic"}}>Analysing cascade…</span>
                     )}
                     {isSim&&(
                       <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.ink2}}>
-                        <AIStar size={12} colour={C.blue} spin/>Simulating…
+                        <AIStar size={12} colour={C.blue} spin/>Running…
                       </div>
                     )}
                     {res&&!isSim&&(
-                      <span style={{fontSize:10,color:statusColour(res.status),fontWeight:600}}>Simulated ✓</span>
+                      <span style={{fontSize:10,color:statusColour(res.status),fontWeight:600}}>Done ✓</span>
                     )}
                   </div>
 
@@ -1211,10 +1266,10 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
             </Btn>
             <div style={{fontSize:11,textAlign:"center",color:
               !resVals.length?C.ink3:hasUnresolvedCascade?C.amber:!allSimulated?C.ink3:C.green}}>
-              {!resVals.length&&"Simulate at least one fix to proceed"}
-              {resVals.length>0&&hasUnresolvedCascade&&"⚠ Resolve cascade issues before applying"}
-              {resVals.length>0&&!hasUnresolvedCascade&&!allSimulated&&"Simulate remaining fixes to proceed"}
-              {canApply&&"✓ All cascades resolved — ready to apply"}
+              {!resVals.length&&"Run a simulation on at least one fix to continue"}
+              {resVals.length>0&&hasUnresolvedCascade&&"⚠ Fix the cascade issue before applying"}
+              {resVals.length>0&&!hasUnresolvedCascade&&!allSimulated&&"Run simulations on the remaining fixes to continue"}
+              {canApply&&"✓ All checks passed — safe to apply"}
             </div>
           </div>
         </div>
@@ -1225,8 +1280,8 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
           {/* log header */}
           <div style={{padding:"14px 24px",borderBottom:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <div style={{fontSize:13,fontWeight:700}}>Simulation log</div>
-              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>Results appear here as you simulate each fix</div>
+              <div style={{fontSize:13,fontWeight:700}}>Simulation results</div>
+              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>Each fix is tested against a shadow copy of your data before anything is changed</div>
             </div>
             {log.length>0&&(
               <div style={{display:"flex",gap:8}}>
@@ -1245,8 +1300,8 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
             {log.length===0&&(
               <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:40}}>
                 <div style={{width:56,height:56,borderRadius:999,background:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>⚗</div>
-                <div style={{fontSize:14,fontWeight:600,color:C.ink2}}>No simulations run yet</div>
-                <div style={{fontSize:12,textAlign:"center",maxWidth:280,lineHeight:1.6,color:C.ink2}}>Click <b>Simulate →</b> on any fix in the plan to model its impact on the shadow ledger before committing.</div>
+                <div style={{fontSize:14,fontWeight:600,color:C.ink2}}>Nothing tested yet</div>
+                <div style={{fontSize:12,textAlign:"center",maxWidth:300,lineHeight:1.7,color:C.ink2}}>Click <b>Run simulation →</b> on any fix to test it against a shadow copy of your data. Results will show here — nothing gets changed until you apply.</div>
               </div>
             )}
 
