@@ -1492,11 +1492,116 @@ const EoSection=({num,title,children,open:initOpen=false})=>{
 };
 
 // ── Done ──────────────────────────────────────────────────────────────────────
+const SubmittedScreen=({jira,onRestart})=>{
+  const [tick,setTick]=useState(false);
+  useEffect(()=>{setTimeout(()=>setTick(true),120);},[]);
+  const steps=[
+    {done:true,  label:"Fixes applied & back-reported",  detail:"691 records resubmitted · 96% first-time-right"},
+    {done:true,  label:"E&O notification generated",     detail:"Pre-filled by En>ACT · PDF draft saved"},
+    {done:true,  label:"Compliance ticket raised",       detail:`${jira?.id||"RR-2042"} · Assigned to ${jira?.assignee||"Sarah Chen · Compliance"}`},
+    {done:false, label:"Compliance review",              detail:"Est. 5–10 business days · FX-RC3 precision fix"},
+    {done:false, label:"FX-RC3 back-report",             detail:"Pending sign-off · 4,812 records"},
+  ];
+  return(
+    <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      background:`radial-gradient(ellipse at 50% 30%, ${C.blue}08 0%, transparent 65%), ${C.surface}`,
+      padding:"40px 60px",overflow:"hidden",position:"relative"}}>
+
+      {/* dot grid bg */}
+      <div style={{position:"absolute",inset:0,opacity:.035,pointerEvents:"none",
+        backgroundImage:`radial-gradient(circle, ${C.blue} 1.5px, transparent 1.5px)`,
+        backgroundSize:"32px 32px"}}/>
+
+      <div style={{width:"100%",maxWidth:760,display:"flex",flexDirection:"column",gap:32,position:"relative"}}>
+
+        {/* ── Hero ── */}
+        <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
+          <div style={{
+            width:80,height:80,borderRadius:999,
+            background:`radial-gradient(circle at 34% 34%, ${C.green}CC, ${C.green}66)`,
+            border:`2px solid ${C.green}`,
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,
+            boxShadow:`0 0 0 12px ${C.green}14, 0 0 0 24px ${C.green}07`,
+            transition:"transform 400ms cubic-bezier(.34,1.56,.64,1),opacity 300ms ease",
+            transform:tick?"scale(1)":"scale(.6)",opacity:tick?1:0}}>✓</div>
+          <div>
+            <div style={{fontSize:26,fontWeight:700,letterSpacing:"-0.02em",color:C.ink,marginBottom:6}}>
+              Remediation pack submitted
+            </div>
+            <div style={{fontSize:13,color:C.ink2,lineHeight:1.6}}>
+              Whale Capital · MiFID II / CFTC P45 · submitted 13 May 2026 · ref&nbsp;
+              <span style={{fontWeight:700,color:C.blue}}>{jira?.id||"RR-2042"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── KPI strip ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+          {[
+            {v:"691",   l:"records back-reported", c:C.green,  bg:C.greenT},
+            {v:"3",     l:"fixes applied",          c:C.ink,    bg:"#fff"},
+            {v:"97.3%", l:"projected accuracy",     c:C.blue,   bg:C.blueT2},
+            {v:"1",     l:"pending Compliance",     c:C.amber,  bg:C.amberT},
+          ].map(({v,l,c,bg},i)=>(
+            <div key={i} style={{padding:"16px 14px",background:bg,border:`1px solid ${C.line}`,borderRadius:10,textAlign:"center",
+              transition:`opacity 300ms ease ${120+i*60}ms, transform 300ms ease ${120+i*60}ms`,
+              opacity:tick?1:0,transform:tick?"translateY(0)":"translateY(8px)"}}>
+              <div style={{fontSize:26,fontWeight:800,color:c,letterSpacing:"-0.02em",lineHeight:1}}>{v}</div>
+              <div style={{fontSize:10,color:C.ink2,marginTop:5,lineHeight:1.3}}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── What happens next ── */}
+        <div style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:12,overflow:"hidden"}}>
+          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.ink}}>What happens next</div>
+          </div>
+          <div style={{padding:"8px 0"}}>
+            {steps.map((s,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"12px 20px",
+                borderBottom:i<steps.length-1?`1px solid ${C.line}`:"none"}}>
+                {/* step indicator */}
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,paddingTop:2}}>
+                  <div style={{
+                    width:22,height:22,borderRadius:999,
+                    background:s.done?C.green:C.muted,
+                    border:`2px solid ${s.done?C.green:C.line2}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:10,fontWeight:800,color:s.done?"#fff":C.ink3}}>
+                    {s.done?"✓":i+1}
+                  </div>
+                  {i<steps.length-1&&<div style={{width:2,height:20,background:s.done?`${C.green}44`:C.line,marginTop:3}}/>}
+                </div>
+                <div style={{flex:1,paddingBottom:4}}>
+                  <div style={{fontSize:12,fontWeight:600,color:s.done?C.ink:C.ink2,lineHeight:1.35}}>{s.label}</div>
+                  <div style={{fontSize:11,color:C.ink2,marginTop:2,lineHeight:1.5}}>{s.detail}</div>
+                </div>
+                {s.done&&<Pill bg={C.greenBg} fg={C.green} style={{flexShrink:0,marginTop:2}}>Done</Pill>}
+                {!s.done&&i===3&&<Pill bg={C.amberBg} fg={C.amber} style={{flexShrink:0,marginTop:2}}>In progress</Pill>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── footer actions ── */}
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <Btn variant="default" size="md" onClick={onRestart}>← Return to overview</Btn>
+          <Btn variant="default" size="md">↓ Download audit pack</Btn>
+          <Btn variant="soft" size="md">Open Jira ticket ↗</Btn>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 const DoneScreen=({onRestart})=>{
   const [jira,setJira]=useState(null);
   const [eoOpen,setEoOpen]=useState(false);
   const [eoGenerating,setEoGenerating]=useState(false);
   const [eoReady,setEoReady]=useState(false);
+  const [submitted,setSubmitted]=useState(false);
   const raiseJira=()=>{
     setJira("raising");
     setTimeout(()=>setJira({id:"RR-2042",url:"jira.whalecapital.com/RR-2042",assignee:"Sarah Chen · Compliance"}),1400);
@@ -1505,6 +1610,8 @@ const DoneScreen=({onRestart})=>{
     setEoGenerating(true);
     setTimeout(()=>{setEoGenerating(false);setEoReady(true);setEoOpen(true);},2000);
   };
+
+  if(submitted) return <SubmittedScreen jira={jira} onRestart={onRestart}/>;
 
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:C.surface,overflow:"hidden"}}>
@@ -1650,6 +1757,7 @@ const DoneScreen=({onRestart})=>{
               <Btn variant="default" size="sm" onClick={onRestart} style={{flex:1}}>← Back to overview</Btn>
               <Btn variant="primary" size="sm"
                 disabled={!(jira&&jira.id&&eoReady)}
+                onClick={()=>setSubmitted(true)}
                 style={{flex:2,justifyContent:"center",
                   ...((jira&&jira.id&&eoReady)?{
                     animation:"glowApply 2.2s ease-in-out infinite",
