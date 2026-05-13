@@ -655,7 +655,13 @@ const AgentRunning=({agent})=>{
 // ── Root Cause review ─────────────────────────────────────────────────────────
 const ReviewRoot=({onNext,onCancel})=>{
   const [openId,setOpenId]=useState(null);
-  const open=ROOT_CAUSES.find(r=>r.id===openId);
+  const [selected,setSelected]=useState(()=>new Set(ROOT_CAUSES.map(r=>r.id)));
+
+  const toggleSel=(id,e)=>{e.stopPropagation();setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});};
+  const selList=ROOT_CAUSES.filter(r=>selected.has(r.id));
+  const deferList=ROOT_CAUSES.filter(r=>!selected.has(r.id));
+  const selRecords=selList.reduce((a,r)=>a+r.records,0);
+
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:C.surface,overflow:"hidden"}}>
       {/* header */}
@@ -675,11 +681,11 @@ const ReviewRoot=({onNext,onCancel})=>{
       <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"22px 40px 28px",display:"flex",flexDirection:"column",gap:12}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:6}}>
           {[
-            {l:"Root causes",      v:"3",        c:A.root.colour},
-            {l:"Avg confidence",   v:"80%",       c:C.ink},
-            {l:"Records affected", v:"5,411",     c:C.ink},
-            {l:"High severity",    v:"2 of 3",    c:C.red},
-            {l:"Detection period", v:"14 Jan – 09 May", c:C.ink2, small:true},
+            {l:"Root causes",      v:`${selList.length} of 3`,  c:A.root.colour},
+            {l:"Avg confidence",   v:"80%",                      c:C.ink},
+            {l:"Records selected", v:selRecords.toLocaleString(),c:C.ink},
+            {l:"High severity",    v:"2 of 3",                   c:C.red},
+            {l:"Detection period", v:"14 Jan – 09 May",          c:C.ink2, small:true},
           ].map(({l,v,c,small})=>(
             <div key={l} style={{padding:12,background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
               <div style={{fontSize:10,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:4}}>{l}</div>
@@ -688,16 +694,31 @@ const ReviewRoot=({onNext,onCancel})=>{
           ))}
         </div>
 
-        {ROOT_CAUSES.map(rc=>(
+        {ROOT_CAUSES.map(rc=>{
+          const isSel=selected.has(rc.id);
+          return(
           <Card key={rc.id} padding={20} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
-            style={{borderColor:openId===rc.id?A.root.colour+"66":C.line}}>
+            style={{borderColor:!isSel?C.line:openId===rc.id?A.root.colour+"66":C.line,
+              opacity:isSel?1:0.55,transition:"opacity 180ms ease"}}>
             <div style={{display:"flex",alignItems:"flex-start",gap:16}}>
-              <Donut value={rc.confidence} colour={A.root.colour} size={72} label="Conf"/>
+
+              {/* selection toggle */}
+              <div onClick={e=>toggleSel(rc.id,e)}
+                style={{width:22,height:22,borderRadius:999,flexShrink:0,marginTop:4,cursor:"pointer",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  background:isSel?C.green:"#fff",
+                  border:`2px solid ${isSel?C.green:C.line2}`,
+                  transition:"all 160ms ease",boxShadow:isSel?`0 0 0 3px ${C.green}22`:"none"}}>
+                {isSel&&<span style={{color:"#fff",fontSize:11,fontWeight:800,lineHeight:1}}>✓</span>}
+              </div>
+
+              <Donut value={rc.confidence} colour={isSel?A.root.colour:C.ink3} size={72} label="Conf"/>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}>
                   <Sev level={rc.sev}/>
                   <span style={{fontSize:11,color:C.ink3,fontWeight:600}}>{rc.id}</span>
                   <Pill bg={C.blueT2} fg={C.blue}>{rc.records.toLocaleString()} records · {rc.entity}</Pill>
+                  {!isSel&&<Pill bg={C.muted} fg={C.ink3}>Deferred</Pill>}
                 </div>
                 <div style={{fontSize:16,fontWeight:700,letterSpacing:"-0.01em",marginBottom:10}}>{rc.title}</div>
                 {/* lineage chain */}
@@ -827,14 +848,29 @@ const ReviewRoot=({onNext,onCancel})=>{
               </div>
             )}
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* footer */}
       <div style={{padding:"14px 40px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",gap:12}}>
-        <span style={{fontSize:11,color:C.ink2}}>Review the root causes above, then run the Remediation agent to generate targeted fixes.</span>
+        {selList.length===0?(
+          <span style={{fontSize:12,color:C.red,fontWeight:600}}>⚠ Select at least one root cause to proceed</span>
+        ):(
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:12,color:C.ink}}>
+              Proceeding with <b>{selList.length} of {ROOT_CAUSES.length}</b> root causes
+              · <b>{selRecords.toLocaleString()}</b> records
+            </span>
+            {deferList.length>0&&(
+              <Pill bg={C.muted} fg={C.ink3}>{deferList.length} deferred</Pill>
+            )}
+          </div>
+        )}
         <div style={{flex:1}}/>
-        <Btn variant="primary" size="md" onClick={onNext}>Run Remediation agent →</Btn>
+        <Btn variant="primary" size="md" disabled={selList.length===0} onClick={onNext}>
+          Run Remediation agent →
+        </Btn>
       </div>
     </div>
   );
