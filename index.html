@@ -1,0 +1,1815 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"/>
+<title>AI Agents Flow — En:ACT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{height:100%;margin:0;}
+body{font-family:'Inter',system-ui,sans-serif;background:#FAFAFB;color:#212121;-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;}
+@keyframes aiSpin {from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes aiPulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.85;}}
+@keyframes fadeIn {from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(32px);}to{opacity:1;transform:none;}}
+/* ── New wow animations ─────────────────────────────────────────────────── */
+@keyframes dataFlow{from{stroke-dashoffset:60;}to{stroke-dashoffset:0;}}
+@keyframes neuralPulse{0%,100%{opacity:.18;}50%{opacity:.85;}}
+@keyframes orbitCCW{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
+@keyframes shimmerSlide{0%{transform:translateX(-100%);}100%{transform:translateX(300%);}}
+@keyframes particleFloat{0%{opacity:0;transform:translate(0,0) scale(0);}18%{opacity:.95;}80%{opacity:.3;}100%{opacity:0;transform:translate(var(--ptx),var(--pty)) scale(.1);}}
+@keyframes rippleOut{0%{transform:scale(1);opacity:.55;}100%{transform:scale(3.2);opacity:0;}}
+@keyframes gridDrift{0%{background-position:0 0;}100%{background-position:40px 40px;}}
+@keyframes glowApply{0%,100%{box-shadow:0 2px 8px rgba(35,100,67,.25),0 0 0 0 rgba(35,100,67,0);}50%{box-shadow:0 6px 24px rgba(35,100,67,.4),0 0 0 6px rgba(35,100,67,.14);}}
+@keyframes stampIn{0%{transform:scale(1.18);opacity:0;}55%{transform:scale(.97);}100%{transform:scale(1);opacity:1;}}
+@keyframes scanPulse{0%,100%{opacity:0;}40%,60%{opacity:1;}}
+@keyframes nodeConnect{0%{stroke-dashoffset:80;opacity:0;}100%{stroke-dashoffset:0;opacity:1;}}
+@keyframes tileGlow{0%,100%{box-shadow:none;}50%{box-shadow:0 0 0 3px rgba(68,112,173,.2),0 4px 20px rgba(68,112,173,.15);}}
+.fadeIn{animation:fadeIn 220ms ease both;}
+.slideIn{animation:slideIn 260ms cubic-bezier(.2,.6,.2,1) both;}
+.slideInRight{animation:slideInRight 220ms cubic-bezier(.2,.6,.2,1) both;}
+.stampIn{animation:stampIn 320ms cubic-bezier(.2,.6,.2,1) both;}
+.glowApply{animation:glowApply 2.2s ease-in-out infinite;}
+
+/* ── Tweaks panel ── */
+.twk-panel{position:fixed;right:16px;bottom:68px;z-index:9998;width:280px;
+  background:rgba(250,249,247,.96);color:#29261b;
+  -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+  border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.18);
+  font:11.5px/1.4 'Inter',system-ui,sans-serif;overflow:hidden;}
+.twk-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 10px 14px;}
+.twk-hd b{font-size:12px;font-weight:600;}
+.twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+  width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:13px;}
+.twk-x:hover{background:rgba(0,0,0,.06);color:#29261b;}
+.twk-body{padding:4px 14px 14px;display:flex;flex-direction:column;gap:8px;}
+.twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(41,38,27,.45);padding-top:8px;}
+.twk-sub{font-size:10px;color:rgba(41,38,27,.5);line-height:1.4;}
+.twk-row-h{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;}
+.twk-lbl{font-size:11.5px;font-weight:500;color:rgba(41,38,27,.72);}
+.twk-hint{font-size:10px;color:rgba(41,38,27,.45);line-height:1.4;margin-top:4px;}
+.twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+  background:rgba(0,0,0,.15);transition:background .15s;cursor:pointer;padding:0;flex-shrink:0;}
+.twk-toggle[data-on="1"]{background:#34c759;}
+.twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s;font-style:normal;display:block;}
+.twk-toggle[data-on="1"] i{transform:translateX(14px);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ── Tokens ───────────────────────────────────────────────────────────────────
+const C = {
+  ink:"#212121", ink2:"#5d6168", ink3:"#9aa0a6",
+  muted:"#F5F6F8", surface:"#FAFAFB",
+  line:"#E5E7EB", line2:"#CFD3D8",
+  blue:"#44709D", blueH:"#37538C", blueT:"#C4E1F6", blueT2:"#EAF3FB",
+  red:"#B23220", redBg:"#FECFD2", redT:"#FDECEC",
+  amber:"#B05D00", amberBg:"#F7E7CB", amberT:"#FBF4E5",
+  green:"#236443", greenBg:"#D9EFE2", greenT:"#EEF7F1",
+  navy:"#263038",
+  sans:"'Inter',system-ui,sans-serif",
+};
+
+// ── Agents (2-step flow) ─────────────────────────────────────────────────────
+const AGENTS = [
+  { id:"root", name:"Autonomous Root Cause", short:"Root Cause", glyph:"R", colour:"#44709D",
+    tagline:"Detects recurring inaccurate data patterns across: (1) Fields, (2) Asset Classes, (3) Counterparties, and (4) Time Periods.", duration:2600 },
+  { id:"rem",  name:"Intelligent Remediation", short:"Rem & Sim", glyph:"M", colour:"#B05D00",
+    tagline:"Auto-generates a prioritised remediation plan · Groups issues by structural root cause · Pre-populates E&O forms automatically.", duration:1800 },
+];
+const A = Object.fromEntries(AGENTS.map(a => [a.id, a]));
+
+// ── Entity & regime ───────────────────────────────────────────────────────────
+const ENTITY = { name:"Whale Capital", lei:"6PTKHDJ8HDUF78PFWH30", type:"Electronic Money Institution", regime:"MiFID II / CFTC P45", arm:"DFR Reporting Platform" };
+
+// ── Root cause data (DFR lineage — Whale Capital) ────────────────────────────────
+const ROOT_CAUSES = [
+  { id:"RC1", sev:"high", confidence:89,
+    title:"broker_lei_ref_dict out of date — 3 counterparties missing from DFR lookup",
+    cluster:"Counterparty 2 LEI lookup failure — FX Swap/Forward",
+    entity:"Whale Capital", records:415,
+    assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
+    fieldRef:"1_14_counterparty_2", fieldLabel:"Counterparty 2 identifier",
+    transformType:"Formatting (CLIENT_ID → LEI via dict lookup)",
+    counterparties:["Goldman Sachs International","Barclays Plc","Morgan Stanley & Co"],
+    breakdown:[{label:"LEI not found in dict",n:287},{label:"Incorrect LEI returned",n:96},{label:"CP2 field blank after lookup",n:32}],
+    dailyBreaks:[58,63,61,57,71,55,48],
+    period:"14 Jan 2026 – 09 May 2026",
+    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","CLIENT_ID → PartyFile.PartyID","broker_lei_ref_dict","1_14_counterparty_2","DTCC trade repository"], breakAt:2,
+    proposed:"Update broker_lei_ref_dict to include LEIs for Goldman Sachs International (549300O5ON1W961H4K22), Barclays Plc (G5GSEF7VJP5I7OUK5573) and Morgan Stanley & Co (4PQUHN3JPFGFNF3BB653). Re-derive 1_14_counterparty_2 for all 415 DFR_Reporting_RAW_Feed.Swap_Forward records.",
+    evidence:[
+      "89% of CP2 LEI failures trace to the same 3 missing entries in broker_lei_ref_dict",
+      "broker_lei_ref_dict last refreshed 14 Jan 2026 — 3 counterparties onboarded since with no dict update",
+      "CLIENT_ID → PartyFile.PartyID → TradePartyValue chain confirmed intact; failure is exclusively at dict lookup",
+      "287 records: LEI not found (null returned); 96 records: stale LEI from pre-merger entity; 32 records: CP2 field written blank",
+      "Cascade risk: collateral position reports referencing same LEIs — assessed low (separate pipeline)",
+    ]},
+  { id:"RC2", sev:"high", confidence:78,
+    title:"DFR intragroup_flag not consulted in 1_17 financial entity indicator derivation",
+    cluster:"Counterparty 2 financial entity indicator mismatch — intragroup trades",
+    entity:"Whale Capital", records:184,
+    assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
+    fieldRef:"1_17_counterparty_2_financial_entity_indicator", fieldLabel:"CP2 financial entity indicator",
+    transformType:"Derived (conditional logic — intragroup_flag source)",
+    counterparties:["Merrill Lynch International","JPMorgan Chase Bank N.A."],
+    breakdown:[{label:"Should be TRUE, reported blank",n:141},{label:"Should be TRUE, reported FALSE",n:43}],
+    dailyBreaks:[22,31,18,29,25,34,25],
+    period:"14 Jan 2026 – 09 May 2026",
+    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","TradePartyValue / intragroup_flag","Derived logic → 1_17","1_17_counterparty_2_financial_entity_indicator","DTCC trade repository"], breakAt:2,
+    proposed:"Add derivation rule: where intragroup_flag = TRUE in DFR_Reporting_RAW_Feed.Swap_Forward, set 1_17_counterparty_2_financial_entity_indicator = TRUE. Apply retroactively to 184 affected FX records for Merrill Lynch International and JPMorgan Chase Bank N.A.",
+    evidence:[
+      "78% of 1_17 failures occur on trades where intragroup_flag = TRUE in the DFR source record",
+      "Derived logic for 1_17 currently references TradePartyValue LEI lookup only — intragroup_flag is present on the same source row but not referenced",
+      "Confirmed absent in lineage mapping: no conditional branch on intragroup_flag exists in the 1_17 derivation spec",
+      "141 records: field blank where TRUE required; 43 records: FALSE where TRUE required (intragroup not flagged in source)",
+      "Cascade risk: counterparty reconciliation score expected to deteriorate for Merrill Lynch (medium) — resolved by fix",
+    ]},
+  { id:"RC3", sev:"medium", confidence:74,
+    title:"DFR Original_TargetAmount passed to 1_31 as 2dp — no precision expansion in formatting step",
+    cluster:"Notional amount precision drift — leg 1 (FX Swap/Forward)",
+    entity:"Whale Capital", records:4812,
+    assetClass:"FX Swap / Forward", regime:"CFTC P45 / MiFID II RTS22",
+    fieldRef:"1_31_notional_amt_leg_1", fieldLabel:"Notional amount leg 1",
+    transformType:"Formatting (Original_TargetAmount → 1_31, 1-1 mapping)",
+    counterparties:["UBS AG","Barclays Plc","Goldman Sachs International","Deutsche Bank AG"],
+    breakdown:[{label:"Rounded to 2dp (truncated)",n:4812}],
+    dailyBreaks:[690,701,688,712,695,714,612],
+    period:"Onset estimated Q4 2025 — ongoing; detected 09 May 2026",
+    chain:["DFR_Reporting_RAW_Feed.Swap_Forward","Original_TargetAmount (2dp native)","Formatting step → 1_31","1_31_notional_amt_leg_1","DTCC trade repository"], breakAt:2,
+    proposed:"Add precision expansion in DFR formatting pipeline: convert Original_TargetAmount from 2dp to 6dp before writing to 1_31_notional_amt_leg_1. Apply to all FX Swap/Forward records. Separately assess 1_31_notional_amt_leg_2 (Original_SettlementAmount — same pipeline, same issue).",
+    evidence:[
+      "100% of 1_31 precision failures share the same 2dp rounding pattern — unique to DFR Original_TargetAmount field",
+      "DFR → 1_31 defined as 1-1 Formatting transformation with no precision step — confirmed in lineage mapping config",
+      "DTCC rejects require 6dp precision for notional fields; 2dp submissions fail cross-regime tolerance check",
+      "Original_SettlementAmount (leg 2 source) uses the same DFR formatting pipeline — 1_31_notional_amt_leg_2 at high risk of same defect",
+      "Cascade risk: valuation tolerance breach on 312 records against counterparty submissions (low–medium)",
+    ]},
+];
+
+// ── Remediation fixes ────────────────────────────────────────────────────────
+const INITIAL_FIXES = [
+  { id:"FX-RC1", rcId:"RC1", title:"Update broker_lei_ref_dict",
+    records:415, confidence:89, entity:"Whale Capital", field:"1_14_counterparty_2",
+    desc:"Update broker_lei_ref_dict with correct LEIs for 3 counterparties onboarded since Jan 2026. Re-derive 1_14_counterparty_2 for 415 DFR_Reporting_RAW_Feed.Swap_Forward records." },
+  { id:"FX-RC2", rcId:"RC2", title:"Add intragroup_flag → 1_17 derivation rule",
+    records:184, confidence:78, entity:"Whale Capital", field:"1_17_counterparty_2_financial_entity_indicator",
+    desc:"Add rule: where intragroup_flag = TRUE in DFR_Reporting_RAW_Feed.Swap_Forward, set 1_17_counterparty_2_financial_entity_indicator = TRUE. Apply retroactively to 184 FX records." },
+  { id:"FX-RC3", rcId:"RC3", title:"Apply 6dp precision to Original_TargetAmount → 1_31",
+    records:4812, confidence:74, entity:"Whale Capital", field:"1_31_notional_amt_leg_1",
+    desc:"Add precision expansion in DFR formatting pipeline: expand Original_TargetAmount from 2dp to 6dp before mapping to 1_31_notional_amt_leg_1 for 4,812 FX Swap_Forward records." },
+];
+
+// cascade fix auto-added when FX-RC2 simulation detects downstream break
+const CASCADE_FIX = {
+  id:"FX-RC4", rcId:"RC4", isCascade:true,
+  title:"Rebuild recon feed key after 1_17 financial entity indicator change",
+  records:92, confidence:81, entity:"Whale Capital", field:"Recon feed key",
+  desc:"Rebuild counterparty recon feed key after 1_17_counterparty_2_financial_entity_indicator derivation change. Backfill 92 affected DFR records.",
+};
+
+// root cause for cascade fix — found by mini RC agent
+const CASCADE_RC = {
+  id:"RC4", confidence:83, sev:"high",
+  title:"Recon feed key builder includes 1_17 financial entity indicator — not rebuilt after derivation change",
+  cluster:"Downstream cascade from CP2 financial entity indicator fix — FX-RC2",
+  entity:"Whale Capital", records:92,
+  chain:["1_17_counterparty_2_financial_entity_indicator","Recon key builder (DFR)","Recon feed key","DTCC trade repository"], breakAt:1,
+  proposed:"Rebuild DFR counterparty recon feed key after 1_17 derivation change. Re-run key-builder for 92 affected Whale Capital records.",
+  evidence:[
+    "Recon feed key builder includes 1_17 as composite component — confirmed in DFR key-builder config",
+    "Financial entity indicator change (FALSE → TRUE) triggers key mismatch on 92 of 184 records",
+    "No automated rebuild step exists after 1_17 derivation — manual trigger required",
+  ],
+};
+
+// ── Simulation results ────────────────────────────────────────────────────────
+const SIM_RESULTS_CASCADE = {
+  "FX-RC1":{ status:"safe", ftr:96, readiness:"+6pts",
+    detail:"415 records · field 1_14_counterparty_2 · safe to submit.",
+    note:"Warning: 1_15_counterparty_2_identifier_source re-evaluated for 89 records — confirm LEI source codes before submission." },
+  "FX-RC2":{ status:"cascade", ftr:91, readiness:"—",
+    detail:"184 records · 1_17_counterparty_2_financial_entity_indicator corrected — but downstream recon feed key now mismatches on 92 records.",
+    cascadeChain:["DFR_Reporting_RAW_Feed","intragroup_flag","1_17 derivation","Recon feed key","DTCC"],
+    cascadeFix: CASCADE_FIX },
+  "FX-RC3":{ status:"human", ftr:88, readiness:"+3pts",
+    detail:"4,812 records · field 1_31_notional_amt_leg_1.",
+    reason:"Precision change on 1_31 may breach valuation tolerance against counterparty submissions on 312 records. 1_31_notional_amt_leg_2 (Original_SettlementAmount) uses same DFR pipeline — check if same precision fix is required on leg 2." },
+  "FX-RC4":{ status:"safe", ftr:81, readiness:"+2pts",
+    detail:"92 records · DFR recon feed key rebuilt and resynced. Cascade from FX-RC2 fully resolved." },
+};
+const SIM_RESULTS_CLEAN = {
+  "FX-RC1":{ status:"safe", ftr:96, readiness:"+6pts",
+    detail:"415 records · 1_14_counterparty_2 re-derived · first-time-right 96% · safe to submit." },
+  "FX-RC2":{ status:"safe", ftr:91, readiness:"+3pts",
+    detail:"184 records · 1_17_counterparty_2_financial_entity_indicator corrected · counterparty recon unaffected · safe to submit." },
+  "FX-RC3":{ status:"human", ftr:88, readiness:"+3pts",
+    detail:"4,812 records · field 1_31_notional_amt_leg_1.",
+    reason:"Precision change on 1_31 may breach valuation tolerance against counterparty submissions on 312 records. Compliance sign-off required before back-reporting." },
+};
+
+// ── Primitives ────────────────────────────────────────────────────────────────
+const Btn = ({children,variant="default",size="md",onClick,disabled,style})=>{
+  const sz={sm:{h:30,px:12,fs:12},md:{h:38,px:16,fs:13},lg:{h:46,px:22,fs:14}}[size];
+  const V={
+    primary:{bg:C.blue,fg:"#fff",bd:C.blue,hbg:C.blueH},
+    danger: {bg:C.red, fg:"#fff",bd:C.red, hbg:"#8e2818"},
+    ghost:  {bg:"transparent",fg:C.ink,bd:"transparent",hbg:C.muted},
+    soft:   {bg:C.blueT2,fg:C.blue,bd:C.blueT,hbg:C.blueT},
+    default:{bg:"#fff",fg:C.ink,bd:C.line2,hbg:C.muted},
+  }[variant];
+  const [h,setH]=useState(false);
+  return(
+    <button onClick={disabled?undefined:onClick} disabled={disabled}
+      onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,
+        height:sz.h,padding:`0 ${sz.px}px`,
+        background:h&&!disabled?V.hbg:V.bg,color:V.fg,
+        border:`1px solid ${V.bd}`,borderRadius:8,
+        fontFamily:C.sans,fontSize:sz.fs,fontWeight:600,
+        cursor:disabled?"not-allowed":"pointer",opacity:disabled?.45:1,
+        whiteSpace:"nowrap",transition:"all 120ms ease",...style}}>
+      {children}
+    </button>
+  );
+};
+
+const Pill=({children,bg="#EEF0F3",fg=C.ink2,style})=>(
+  <span style={{display:"inline-flex",alignItems:"center",gap:5,
+    padding:"3px 10px",borderRadius:999,
+    background:bg,color:fg,fontSize:11,fontWeight:600,fontFamily:C.sans,...style}}>{children}</span>
+);
+
+const SEV={
+  high:  {bg:C.redBg,  fg:C.red,   l:"High"},
+  medium:{bg:C.amberBg,fg:C.amber, l:"Medium"},
+  low:   {bg:C.blueT,  fg:C.blue,  l:"Low"},
+};
+const Sev=({level})=>{const s=SEV[level];return<Pill bg={s.bg} fg={s.fg}><span style={{width:6,height:6,borderRadius:999,background:s.fg}}/>{s.l}</Pill>;};
+
+const Glyph=({a,size=36})=>(
+  <div style={{width:size,height:size,borderRadius:999,background:a.colour,color:"#fff",
+    display:"inline-flex",alignItems:"center",justifyContent:"center",
+    fontFamily:C.sans,fontWeight:700,fontSize:size*.42,flexShrink:0}}>{a.glyph}</div>
+);
+
+const AIStar=({size=16,colour=C.blue,spin})=>(
+  <svg width={size} height={size} viewBox="0 0 16 16"
+    style={{animation:spin?"aiSpin 1.4s linear infinite":undefined,flexShrink:0}}>
+    <g fill={colour}>
+      <path d="M8 0.5 L9 6.5 L8 8 L7 6.5 Z"/>
+      <path d="M8 15.5 L7 9.5 L8 8 L9 9.5 Z"/>
+      <path d="M0.5 8 L6.5 7 L8 8 L6.5 9 Z"/>
+      <path d="M15.5 8 L9.5 9 L8 8 L9.5 7 Z"/>
+      <circle cx="8" cy="8" r="1.4"/>
+    </g>
+  </svg>
+);
+
+const Card=({children,padding=24,style,hover,onClick})=>{
+  const [h,setH]=useState(false);
+  return(
+    <div onClick={onClick}
+      onMouseEnter={()=>hover&&setH(true)} onMouseLeave={()=>hover&&setH(false)}
+      style={{background:"#fff",border:`1px solid ${h?C.blue:C.line}`,borderRadius:10,
+        padding,cursor:onClick?"pointer":"default",
+        boxShadow:h?`0 6px 16px ${C.blue}22`:"none",
+        transition:"all 140ms ease",...style}}>{children}</div>
+  );
+};
+
+const Donut=({value,colour=C.green,size=88,label})=>{
+  const r=38,circ=2*Math.PI*r,dash=(value/100)*circ;
+  return(
+    <div style={{position:"relative",width:size,height:size,flexShrink:0}}>
+      <svg width={size} height={size} viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r={r} fill="none" stroke={C.muted} strokeWidth="8"/>
+        <circle cx="44" cy="44" r={r} fill="none" stroke={colour} strokeWidth="8"
+          strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ/4}
+          strokeLinecap="round" transform="rotate(-90 44 44)"/>
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        <span style={{fontSize:20,fontWeight:700,color:C.ink,letterSpacing:"-0.02em"}}>{value}</span>
+        {label&&<span style={{fontSize:9,color:C.ink2,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</span>}
+      </div>
+    </div>
+  );
+};
+
+const ConfBar=({value,colour=C.blue})=>(
+  <div>
+    <div style={{height:4,background:C.muted,borderRadius:999,overflow:"hidden",marginBottom:3}}>
+      <div style={{width:`${value}%`,height:"100%",background:colour,borderRadius:999}}/>
+    </div>
+    <span style={{fontSize:10,color:C.ink2}}>{value}% confidence</span>
+  </div>
+);
+
+// ── Tracker (2-step) ──────────────────────────────────────────────────────────
+const Tracker=({stage})=>{
+  const steps=[
+    {id:"root",label:"Root Cause"},
+    {id:"rem", label:"Rem & Sim"},
+  ];
+  const stateOf=id=>{
+    if(stage==="idle") return "pending";
+    if(stage==="running:root") return id==="root"?"running":"pending";
+    if(stage==="review:root")  return id==="root"?"review":"pending";
+    if(stage==="running:rem")  return id==="root"?"done":"running";
+    if(stage==="remediation")  return id==="root"?"done":"active";
+    if(stage==="done")         return "done";
+    return "pending";
+  };
+  return(
+    <div style={{display:"flex",alignItems:"center",padding:"12px 20px",
+      background:"#fff",border:`1px solid ${C.line}`,borderRadius:999,
+      boxShadow:"0 2px 6px rgba(0,0,0,0.04)",gap:0}}>
+      {steps.map((s,i)=>{
+        const st=stateOf(s.id);
+        const ag=A[s.id];
+        const colour=st==="done"?C.green:st==="running"?C.blue:st==="review"?ag.colour:st==="active"?ag.colour:C.line2;
+        const lbl=st==="done"?"✓ Reviewed":st==="running"?"Running…":st==="review"?"Awaiting review":st==="active"?"In progress":"Queued";
+        return(
+          <React.Fragment key={s.id}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:30,height:30,borderRadius:999,
+                background:st==="pending"?"#fff":colour,color:st==="pending"?colour:"#fff",
+                border:`1.5px solid ${colour}`,
+                display:"inline-flex",alignItems:"center",justifyContent:"center",
+                fontWeight:700,fontSize:13,
+                boxShadow:st==="running"?`0 0 0 5px ${colour}22`:"none",
+                animation:st==="running"?"aiPulse 1.8s ease-in-out infinite":undefined}}>
+                {i+1}
+              </div>
+              <div style={{display:"flex",flexDirection:"column"}}>
+                <span style={{fontSize:12,fontWeight:700,color:C.ink}}>{s.label}</span>
+                <span style={{fontSize:10,color:colour,fontWeight:600}}>{lbl}</span>
+              </div>
+            </div>
+            {i<steps.length-1&&<div style={{flex:1,height:2,background:`linear-gradient(90deg,${colour},${C.line})`,margin:"0 16px",borderRadius:999,minWidth:20}}/>}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+const AIButton=({onClick})=>{
+  const [h,setH]=useState(false);
+  return(
+    <button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{display:"inline-flex",alignItems:"center",gap:10,height:38,padding:"0 18px",
+        background:h?C.blue:C.blueT2,color:h?"#fff":C.blue,
+        border:`1.5px solid ${C.blue}`,borderRadius:999,
+        fontSize:13,fontWeight:700,cursor:"pointer",
+        boxShadow:h?`0 6px 18px ${C.blue}44`:"none",
+        transition:"all 160ms ease",whiteSpace:"nowrap"}}>
+      <AIStar size={14} colour={h?"#fff":C.blue}/>
+      Generate AI insight
+    </button>
+  );
+};
+
+const Block=({label,v,sub,colour})=>(
+  <div style={{padding:8,background:"#fff",border:`1px solid ${colour}33`,borderRadius:6,borderLeft:`3px solid ${colour}`}}>
+    <div style={{fontSize:10,color:C.ink2}}>{label}</div>
+    <div style={{fontSize:14,fontWeight:700}}>{v}</div>
+    {sub&&<div style={{fontSize:9,color:colour,fontWeight:600,marginTop:2}}>{sub}</div>}
+  </div>
+);
+
+const SankeyMini=()=>(
+  <div style={{display:"flex",alignItems:"stretch",flex:1,gap:0,minHeight:200,position:"relative"}}>
+    <svg width="100%" height="100%" viewBox="0 0 600 220" preserveAspectRatio="none" style={{position:"absolute",inset:0}}>
+      <path d="M 90 30 C 200 30 220 60 310 60 L 310 110 C 220 110 200 80 90 80 Z" fill={C.blueT} opacity=".6"/>
+      <path d="M 90 90 C 200 90 220 130 310 130 L 310 180 C 220 180 200 140 90 140 Z" fill={C.greenBg} opacity=".7"/>
+      <path d="M 350 60 C 440 60 460 30 540 30 L 540 70 C 460 70 440 100 350 100 Z" fill={C.greenBg} opacity=".7"/>
+      <path d="M 350 105 C 440 105 460 130 540 130 L 540 200 C 460 200 440 175 350 175 Z" fill={C.redBg} opacity=".7"/>
+    </svg>
+    <div style={{width:80,display:"flex",flexDirection:"column",justifyContent:"space-around",position:"relative",zIndex:1}}>
+      <Block label="Submitted" v="100,002" colour={C.blue}/>
+      <Block label="Excluded"  v="2,118"   colour={C.amber}/>
+    </div>
+    <div style={{flex:1}}/>
+    <div style={{width:110,display:"flex",flexDirection:"column",justifyContent:"space-around",position:"relative",zIndex:1}}>
+      <Block label="Reconciled" v="89,418" colour={C.green} sub="89.5%"/>
+      <Block label="Breaks"     v="10,584" colour={C.red}   sub="10.5%"/>
+    </div>
+    <div style={{flex:1}}/>
+    <div style={{width:110,display:"flex",flexDirection:"column",justifyContent:"space-around",position:"relative",zIndex:1}}>
+      <Block label="Clean"       v="89,418" colour={C.green}/>
+      <Block label="In review"   v="3,128"  colour={C.amber}/>
+      <Block label="Open issues" v="7,456"  colour={C.red} sub="3 clusters"/>
+    </div>
+  </div>
+);
+
+const Overview=({onTrigger})=>(
+  <div style={{flex:1,minHeight:0,padding:"28px 40px",display:"flex",flexDirection:"column",gap:20,background:C.surface,overflowY:"auto"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div>
+        <div style={{fontSize:26,fontWeight:700,letterSpacing:"-0.01em"}}>Overview</div>
+        <div style={{fontSize:12,color:C.ink2,marginTop:4}}>Whale Capital · MiFID II / CFTC P45 · 7-day window · last refresh 15:42 UTC</div>
+      </div>
+      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <Btn size="md" variant="default">↓ Export</Btn>
+        <Btn size="md" variant="default">⚙ Configure</Btn>
+        <AIButton onClick={onTrigger}/>
+      </div>
+    </div>
+
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      {[["Entity","Whale Capital"],["Regime","MiFID II / CFTC P45"],["Asset class","All"],["Date","Last 7 days"]].map(([l,v])=>(
+        <div key={l} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:`1px solid ${C.line}`,borderRadius:6,padding:"6px 12px"}}>
+          <span style={{fontSize:11,color:C.ink2}}>{l}:</span>
+          <span style={{fontSize:12,fontWeight:600}}>{v}</span>
+          <span style={{fontSize:10,color:C.ink3}}>▾</span>
+        </div>
+      ))}
+      <div style={{flex:1}}/>
+      <Btn size="sm" variant="primary">Apply filters</Btn>
+      <Btn size="sm" variant="ghost">Reset</Btn>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      {[
+        {l:"Total submissions",v:"100,002",d:"↑ 0.8%",up:true},
+        {l:"Reconciliation",   v:"89.5%",  d:"↓ 1.9%",up:false},
+        {l:"Assurance",        v:"94.2%",  d:"↑ 0.8%",up:true},
+        {l:"Timeliness",       v:"95.8%",  d:"↑ 0.4%",up:true},
+      ].map((k,i)=>(
+        <Card key={i} padding={16}>
+          <div style={{fontSize:11,color:C.ink2}}>○ {k.l}</div>
+          <div style={{fontSize:26,fontWeight:700,marginTop:8,letterSpacing:"-0.01em"}}>{k.v}</div>
+          <Pill bg={k.up?C.greenBg:C.redBg} fg={k.up?C.green:C.red} style={{marginTop:8}}>{k.d}</Pill>
+        </Card>
+      ))}
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,flex:1,minHeight:280}}>
+      <Card padding={18} style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontSize:13,fontWeight:600}}>How your <span style={{color:C.blue}}>Reconciliation ▾</span> data is being processed</div>
+        <SankeyMini/>
+      </Card>
+      <Card padding={18} style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:13,fontWeight:600}}>Recent breaks</div>
+          <Pill bg={C.redBg} fg={C.red}>21 new</Pill>
+        </div>
+        {[
+          {sev:"high",  t:"CP2 nature mismatch",    n:"415",      d:"EMIR Refit · 2h ago"},
+          {sev:"high",  t:"CP2 LEI lookup failure", n:"184",      d:"EMIR Refit · 5h ago"},
+          {sev:"medium",t:"Notional precision drift",n:"4,812",   d:"EMIR Refit · 1d ago"},
+          {sev:"low",   t:"Near-miss T+1 window",   n:"3 batches",d:"EMIR Refit · 1d ago"},
+        ].map((r,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?`1px solid ${C.line}`:"none"}}>
+            <Sev level={r.sev}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.t}</div>
+              <div style={{fontSize:10,color:C.ink2}}>{r.d}</div>
+            </div>
+            <div style={{fontSize:12,fontWeight:700}}>{r.n}</div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  </div>
+);
+
+// ── Neural network data ───────────────────────────────────────────────────────
+const NN_NODES=[
+  {cx:200,cy:52,r:5,d:0},{cx:318,cy:100,r:4,d:.35},{cx:358,cy:222,r:6,d:.7},
+  {cx:296,cy:336,r:4,d:1.05},{cx:158,cy:358,r:5,d:1.4},{cx:62,cy:292,r:4,d:1.75},
+  {cx:44,cy:162,r:6,d:.55},{cx:112,cy:58,r:4,d:.9},
+  {cx:200,cy:184,r:9,d:.2},{cx:268,cy:214,r:5,d:.6},{cx:138,cy:228,r:5,d:1.0},
+];
+const NN_EDGES=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[8,0],[8,2],[8,4],[8,6],[8,9],[8,10],[9,1],[9,3],[10,5],[10,7]];
+const PARTICLES=[
+  {w:5,l:"16%",t:"22%",tx:"-22px",ty:"-58px",d:0,dur:3.1},
+  {w:4,l:"74%",t:"28%",tx:"16px",ty:"-62px",d:.55,dur:2.8},
+  {w:6,l:"33%",t:"68%",tx:"-14px",ty:"-72px",d:.3,dur:3.3},
+  {w:3,l:"82%",t:"58%",tx:"28px",ty:"-48px",d:.85,dur:2.6},
+  {w:5,l:"57%",t:"18%",tx:"12px",ty:"-68px",d:1.15,dur:3.5},
+  {w:4,l:"20%",t:"72%",tx:"-32px",ty:"-52px",d:.65,dur:2.9},
+  {w:3,l:"62%",t:"78%",tx:"22px",ty:"-58px",d:1.45,dur:3.2},
+  {w:5,l:"46%",t:"44%",tx:"-16px",ty:"-74px",d:.22,dur:2.75},
+];
+
+// ── Agent running animation ───────────────────────────────────────────────────
+const AgentRunning=({agent})=>{
+  const [pct,setPct]=useState(0);
+  const [step,setStep]=useState(0);
+  const steps={
+    root:["Tracing lineage chains","Examining derived-field logic","Scoring confidence","Ranking proposals"],
+    rem: ["Mapping root causes to fix strategies","Drafting fix specifications","Validating dependencies","Finalising remediation plan"],
+  }[agent.id];
+  useEffect(()=>{
+    setPct(0);setStep(0);
+    const start=Date.now();
+    const t=setInterval(()=>{
+      const e=(Date.now()-start)/agent.duration,p=Math.min(1,e);
+      setPct(p);setStep(Math.min(steps.length-1,Math.floor(p*steps.length)));
+      if(p>=1)clearInterval(t);
+    },60);
+    return()=>clearInterval(t);
+  },[agent.id]);
+
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      padding:40,gap:32,overflow:"hidden",position:"relative",
+      background:`radial-gradient(ellipse at 50% 40%, ${agent.colour}0A 0%, transparent 65%), ${C.surface}`}}>
+
+      {/* animated dot grid */}
+      <div style={{position:"absolute",inset:0,opacity:.04,pointerEvents:"none",
+        backgroundImage:`radial-gradient(circle, ${agent.colour} 1.5px, transparent 1.5px)`,
+        backgroundSize:"36px 36px",
+        animation:"gridDrift 18s linear infinite"}}/>
+
+      {/* ── Neural network orb ── */}
+      <div style={{position:"relative",width:360,height:360,flexShrink:0}}>
+
+        {/* Neural network SVG */}
+        <svg width="360" height="360" viewBox="0 0 400 400"
+          style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
+          <defs>
+            <radialGradient id={`og${agent.id}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={agent.colour} stopOpacity=".18"/>
+              <stop offset="100%" stopColor={agent.colour} stopOpacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="200" cy="200" r="195" fill={`url(#og${agent.id})`}/>
+          {NN_EDGES.map(([a,b],i)=>(
+            <line key={i}
+              x1={NN_NODES[a].cx} y1={NN_NODES[a].cy}
+              x2={NN_NODES[b].cx} y2={NN_NODES[b].cy}
+              stroke={agent.colour} strokeWidth="1.5" strokeDasharray="6 6"
+              style={{opacity:.35,animationName:"dataFlow",
+                animationDuration:`${2.8+i*.12}s`,
+                animationTimingFunction:"linear",
+                animationIterationCount:"infinite",
+                animationDelay:`${i*.07}s`}}/>
+          ))}
+          {NN_NODES.map((n,i)=>(
+            <circle key={i} cx={n.cx} cy={n.cy} r={n.r} fill={agent.colour}
+              style={{animationName:"neuralPulse",
+                animationDuration:`${1.8+n.d*.6}s`,
+                animationTimingFunction:"ease-in-out",
+                animationIterationCount:"infinite",
+                animationDelay:`${n.d*.28}s`}}/>
+          ))}
+        </svg>
+
+        {/* orbit rings + glyph */}
+        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{position:"absolute",width:270,height:270,borderRadius:999,
+            border:`1px solid ${agent.colour}28`,animation:"aiSpin 14s linear infinite"}}/>
+          <div style={{position:"absolute",width:200,height:200,borderRadius:999,
+            border:`1.5px dashed ${agent.colour}44`,animation:"orbitCCW 8s linear infinite"}}/>
+          <div style={{position:"absolute",width:138,height:138,borderRadius:999,
+            border:`1px solid ${agent.colour}55`,animation:"aiSpin 5s linear infinite"}}/>
+          {[0,1.2].map((delay,i)=>(
+            <div key={i} style={{position:"absolute",width:112,height:112,borderRadius:999,
+              border:`2px solid ${agent.colour}`,
+              animation:`rippleOut 3.4s ease-out ${delay}s infinite`}}/>
+          ))}
+          <div style={{width:100,height:100,borderRadius:999,zIndex:2,position:"relative",
+            background:`radial-gradient(circle at 34% 34%, ${agent.colour}BB 0%, ${agent.colour}55 50%, ${agent.colour}22 100%)`,
+            border:`2px solid ${agent.colour}`,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            boxShadow:`0 0 0 10px ${agent.colour}14, 0 0 40px ${agent.colour}55, 0 0 90px ${agent.colour}28`,
+            animation:"aiPulse 2.6s ease-in-out infinite"}}>
+            <span style={{fontSize:40,fontWeight:700,color:"#fff",
+              textShadow:`0 0 20px ${agent.colour}, 0 2px 4px rgba(0,0,0,.3)`}}>{agent.glyph}</span>
+          </div>
+        </div>
+
+        {/* floating particles */}
+        {PARTICLES.map((p,i)=>(
+          <div key={i} style={{
+            position:"absolute",width:p.w,height:p.w,borderRadius:999,
+            background:agent.colour,left:p.l,top:p.t,
+            '--ptx':p.tx,'--pty':p.ty,
+            animation:`particleFloat ${p.dur}s ease-out ${p.d}s infinite`,
+          }}/>
+        ))}
+      </div>
+
+      {/* agent name + tagline */}
+      <div style={{textAlign:"center",maxWidth:500,zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
+        <div style={{fontSize:24,fontWeight:700,letterSpacing:"-0.015em",color:C.ink}}>{agent.name}</div>
+        <div style={{fontSize:13,color:C.ink2,lineHeight:1.65}}>{agent.tagline}</div>
+      </div>
+
+      {/* shimmer progress bar */}
+      <div style={{width:420,zIndex:1}}>
+        <div style={{height:7,background:C.line,borderRadius:999,overflow:"hidden",position:"relative"}}>
+          <div style={{width:`${pct*100}%`,height:"100%",borderRadius:999,
+            background:`linear-gradient(90deg, ${agent.colour}CC, ${agent.colour})`,
+            transition:"width 60ms linear",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",inset:0,
+              background:"linear-gradient(90deg,transparent 0%,rgba(255,255,255,.55) 50%,transparent 100%)",
+              animation:"shimmerSlide 1.4s ease infinite"}}/>
+          </div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:9,alignItems:"center"}}>
+          <span style={{fontSize:11,color:C.ink2,display:"flex",alignItems:"center",gap:6}}>
+            <AIStar size={11} colour={agent.colour} spin/>{steps[step]}…
+          </span>
+          <span style={{fontSize:12,color:agent.colour,fontWeight:700}}>{Math.round(pct*100)}%</span>
+        </div>
+      </div>
+
+      {/* step chips */}
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"center",zIndex:1}}>
+        {steps.map((s,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 14px",
+            borderRadius:999,fontSize:11,fontWeight:600,
+            transition:"all 200ms ease",
+            background:i<step?agent.colour:i===step?agent.colour+"20":C.muted,
+            border:`1.5px solid ${i<=step?agent.colour:C.line}`,
+            color:i<step?"#fff":i===step?agent.colour:C.ink3,
+            boxShadow:i===step?`0 0 14px ${agent.colour}55`:"none"}}>
+            {i<step?<span style={{fontSize:10}}>✓</span>:
+             i===step?<AIStar size={10} colour={agent.colour} spin/>:
+             <span style={{fontSize:9,opacity:.5}}>○</span>}
+            {s}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Root Cause review ─────────────────────────────────────────────────────────
+const ReviewRoot=({onNext,onCancel})=>{
+  const [openId,setOpenId]=useState(null);
+  const open=ROOT_CAUSES.find(r=>r.id===openId);
+  return(
+    <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:C.surface,overflow:"hidden"}}>
+      {/* header */}
+      <div style={{padding:"22px 40px 18px",borderBottom:`1px solid ${C.line}`,background:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <Glyph a={A.root} size={44}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Step 1 · Autonomous Root Cause</div>
+            <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>3 structural root causes identified across DFR fields</div>
+            <div style={{fontSize:12,color:C.ink2,marginTop:6}}>Detects recurring inaccurate data patterns across: (1) Fields, (2) Asset Classes, (3) Counterparties, and (4) Time Periods · avg confidence 80%</div>
+          </div>
+          <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
+        </div>
+      </div>
+
+      {/* body */}
+      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"22px 40px 28px",display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:6}}>
+          {[
+            {l:"Root causes",      v:"3",        c:A.root.colour},
+            {l:"Avg confidence",   v:"80%",       c:C.ink},
+            {l:"Records affected", v:"5,411",     c:C.ink},
+            {l:"High severity",    v:"2 of 3",    c:C.red},
+            {l:"Detection period", v:"14 Jan – 09 May", c:C.ink2, small:true},
+          ].map(({l,v,c,small})=>(
+            <div key={l} style={{padding:12,background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
+              <div style={{fontSize:10,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:4}}>{l}</div>
+              <div style={{fontSize:small?14:22,fontWeight:700,color:c,lineHeight:1.2}}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {ROOT_CAUSES.map(rc=>(
+          <Card key={rc.id} padding={20} hover onClick={()=>setOpenId(openId===rc.id?null:rc.id)}
+            style={{borderColor:openId===rc.id?A.root.colour+"66":C.line}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:16}}>
+              <Donut value={rc.confidence} colour={A.root.colour} size={72} label="Conf"/>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}>
+                  <Sev level={rc.sev}/>
+                  <span style={{fontSize:11,color:C.ink3,fontWeight:600}}>{rc.id}</span>
+                  <Pill bg={C.blueT2} fg={C.blue}>{rc.records.toLocaleString()} records · {rc.entity}</Pill>
+                </div>
+                <div style={{fontSize:16,fontWeight:700,letterSpacing:"-0.01em",marginBottom:10}}>{rc.title}</div>
+                {/* lineage chain */}
+                <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:5}}>
+                  {rc.chain.map((step,j,arr)=>(
+                    <React.Fragment key={j}>
+                      <div style={{padding:"4px 10px",borderRadius:6,
+                        background:j===rc.breakAt?C.redBg:"#fff",
+                        border:`1px solid ${j===rc.breakAt?C.red:C.line}`,
+                        fontSize:10,fontWeight:600,
+                        color:j===rc.breakAt?C.red:C.ink2,position:"relative"}}>
+                        {j===rc.breakAt&&"⚠ "}{step}
+                        {j===rc.breakAt&&<span style={{position:"absolute",top:-9,right:-6,background:C.red,color:"#fff",fontSize:8,fontWeight:700,padding:"1px 5px",borderRadius:999}}>break</span>}
+                      </div>
+                      {j<arr.length-1&&<span style={{color:C.ink3,fontSize:12}}>→</span>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+              <span style={{fontSize:18,color:C.ink3,transition:"transform 140ms ease",transform:openId===rc.id?"rotate(180deg)":"none"}}>▾</span>
+            </div>
+
+            {/* expanded detail */}
+            {openId===rc.id&&(
+              <div className="slideIn" style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${C.line}`,display:"flex",flexDirection:"column",gap:16}}>
+
+                {/* meta row */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+                  {[
+                    ["Field",rc.fieldRef],
+                    ["Asset class",rc.assetClass],
+                    ["Regime",rc.regime],
+                    ["Transform",rc.transformType],
+                  ].map(([l,v])=>(
+                    <div key={l} style={{padding:"8px 10px",background:C.muted,borderRadius:7,border:`1px solid ${C.line}`}}>
+                      <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:C.ink,wordBreak:"break-word",lineHeight:1.3}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* failure breakdown + sparkline side by side */}
+                <div style={{display:"flex",gap:14}}>
+                  {/* breakdown bars */}
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Failure breakdown</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                      {rc.breakdown.map((b,i)=>{
+                        const pct=Math.round(b.n/rc.records*100);
+                        return(
+                          <div key={i}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                              <span style={{fontSize:11,color:C.ink}}>{b.label}</span>
+                              <span style={{fontSize:11,fontWeight:700,color:C.red}}>{b.n.toLocaleString()}</span>
+                            </div>
+                            <div style={{height:5,background:C.muted,borderRadius:999,overflow:"hidden"}}>
+                              <div style={{width:`${pct}%`,height:"100%",background:C.red,borderRadius:999,opacity:.7}}/>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 7-day sparkline */}
+                  <div style={{width:160,flexShrink:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Daily breaks (7d)</div>
+                    <svg width="160" height="54" style={{display:"block"}}>
+                      {(()=>{
+                        const vals=rc.dailyBreaks;
+                        const mx=Math.max(...vals),mn=Math.min(...vals);
+                        const xs=vals.map((_,i)=>10+i*(140/6));
+                        const ys=vals.map(v=>48-(v-mn)/(mx-mn||1)*38);
+                        const pts=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
+                        const fill=xs.map((x,i)=>`${x},${ys[i]}`).join(" ")+` ${xs[vals.length-1]},50 10,50`;
+                        return(<>
+                          <polyline points={fill} fill={`${C.red}18`} stroke="none"/>
+                          <polyline points={pts} fill="none" stroke={C.red} strokeWidth="1.8" strokeLinejoin="round"/>
+                          {xs.map((x,i)=>(
+                            <circle key={i} cx={x} cy={ys[i]} r={i===vals.length-1?3.5:2.5}
+                              fill={i===vals.length-1?C.red:"#fff"} stroke={C.red} strokeWidth="1.5"/>
+                          ))}
+                          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d,i)=>(
+                            <text key={i} x={xs[i]} y={54} textAnchor="middle" fontSize="7" fill={C.ink3}>{d}</text>
+                          ))}
+                        </>);
+                      })()}
+                    </svg>
+                  </div>
+                </div>
+
+                {/* counterparties */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:7}}>Affected counterparties</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {rc.counterparties.map((cp,i)=>(
+                      <span key={i} style={{padding:"4px 10px",borderRadius:999,background:"#fff",
+                        border:`1px solid ${C.line2}`,fontSize:11,color:C.ink,fontWeight:500}}>{cp}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* proposed fix */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:A.root.colour,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Proposed fix</div>
+                  <div style={{padding:12,background:C.blueT2,borderRadius:8,borderLeft:`3px solid ${A.root.colour}`,fontSize:12,color:C.ink,lineHeight:1.6}}>{rc.proposed}</div>
+                </div>
+
+                {/* evidence */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Evidence</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    {rc.evidence.map((e,i)=>(
+                      <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"#fff",border:`1px solid ${C.line}`,borderRadius:7}}>
+                        <span style={{color:C.green,fontWeight:700,flexShrink:0}}>✓</span>
+                        <span style={{fontSize:12,color:C.ink,flex:1,lineHeight:1.55}}>{e}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* period */}
+                <div style={{display:"flex",gap:8,alignItems:"center",padding:"8px 12px",background:C.muted,borderRadius:7,border:`1px solid ${C.line}`}}>
+                  <span style={{fontSize:10,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Detection period</span>
+                  <span style={{fontSize:11,color:C.ink,fontWeight:600}}>{rc.period}</span>
+                </div>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {/* footer */}
+      <div style={{padding:"14px 40px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontSize:11,color:C.ink2}}>Review the root causes above, then run the Remediation agent to generate targeted fixes.</span>
+        <div style={{flex:1}}/>
+        <Btn variant="primary" size="md" onClick={onNext}>Run Remediation agent →</Btn>
+      </div>
+    </div>
+  );
+};
+
+// ── Mini RC agent — runs inside cascade fix card ──────────────────────────────
+const MINI_NN=[
+  {cx:20,cy:24,r:3},{cx:58,cy:12,r:2.5},{cx:100,cy:22,r:3.5},
+  {cx:142,cy:12,r:2.5},{cx:180,cy:24,r:3},{cx:58,cy:36,r:2},{cx:120,cy:36,r:2},
+];
+const MINI_EDGES=[[0,1],[1,2],[2,3],[3,4],[1,5],[5,2],[2,6],[6,3]];
+
+const CascadeRCMini=({onDone})=>{
+  const [pct,setPct]=useState(0);
+  const [step,setStep]=useState(0);
+  const steps=["Tracing cascade origin","Mapping downstream consumers","Scoring confidence"];
+  useEffect(()=>{
+    const dur=2400,start=Date.now();
+    const t=setInterval(()=>{
+      const p=Math.min(1,(Date.now()-start)/dur);
+      setPct(p);setStep(Math.min(steps.length-1,Math.floor(p*steps.length)));
+      if(p>=1){clearInterval(t);setTimeout(onDone,160);}
+    },60);
+    return()=>clearInterval(t);
+  },[]);
+  return(
+    <div style={{padding:"12px 14px 13px",borderTop:`1px solid ${C.line}`,
+      background:"linear-gradient(135deg,#EEF4FF,#F6FAFF)",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",
+        background:"linear-gradient(90deg,transparent,rgba(68,112,173,.06),transparent)",
+        animation:"shimmerSlide 2s ease infinite"}}/>
+
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,position:"relative"}}>
+        <div style={{width:24,height:24,borderRadius:999,
+          background:`radial-gradient(circle,${C.blueT},${C.blueT2})`,
+          border:`1.5px solid ${C.blue}55`,flexShrink:0,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          boxShadow:`0 0 10px ${C.blue}44`}}>
+          <AIStar size={12} colour={C.blue} spin/>
+        </div>
+        <span style={{fontSize:11,fontWeight:700,color:C.blue,flex:1}}>Root Cause agent running</span>
+        <span style={{fontSize:10,color:C.ink2,fontStyle:"italic"}}>{steps[step]}…</span>
+        <span style={{fontSize:10,fontWeight:700,color:C.blue,marginLeft:6}}>{Math.round(pct*100)}%</span>
+      </div>
+
+      <svg width="200" height="50" style={{display:"block",marginBottom:7,overflow:"visible",position:"relative"}}>
+        {MINI_EDGES.map(([a,b],i)=>(
+          <line key={i} x1={MINI_NN[a].cx} y1={MINI_NN[a].cy} x2={MINI_NN[b].cx} y2={MINI_NN[b].cy}
+            stroke={C.blue} strokeWidth="1" strokeDasharray="4 4" opacity=".4"
+            style={{animationName:"dataFlow",animationDuration:`${1.6+i*.14}s`,
+              animationTimingFunction:"linear",animationIterationCount:"infinite"}}/>
+        ))}
+        {MINI_NN.map((n,i)=>(
+          <circle key={i} cx={n.cx} cy={n.cy} r={n.r} fill={C.blue}
+            style={{animationName:"neuralPulse",animationDuration:`${1.3+i*.18}s`,
+              animationTimingFunction:"ease-in-out",animationIterationCount:"infinite",
+              animationDelay:`${i*.12}s`}}/>
+        ))}
+        <rect x="0" y="44" width="200" height="3" rx="1.5" fill={C.line}/>
+        <rect x="0" y="44" width={`${pct*200}`} height="3" rx="1.5" fill={C.blue} opacity=".8"
+          style={{transition:"width 60ms linear"}}/>
+      </svg>
+
+      <div style={{display:"flex",gap:4,alignItems:"center",position:"relative"}}>
+        {steps.map((s,i)=>(
+          <React.Fragment key={i}>
+            <div style={{padding:"2px 8px",borderRadius:999,fontSize:9,fontWeight:600,
+              background:i<step?C.blue:i===step?C.blueT2:C.muted,
+              border:`1px solid ${i<=step?C.blue:C.line}`,
+              color:i<step?"#fff":i===step?C.blue:C.ink3,
+              boxShadow:i===step?`0 0 8px ${C.blue}44`:"none",
+              display:"flex",alignItems:"center",gap:3,
+              transition:"all .2s ease"}}>
+              {i<step?"✓":i===step?<AIStar size={7} colour={C.blue} spin/>:"·"} {s}
+            </div>
+            {i<steps.length-1&&<span style={{color:C.line2,fontSize:10}}>›</span>}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Fix detail drawer — expands inside fix card on click ──────────────────────
+const FixDrawer=({fix,rcData})=>{
+  const sHd={fontSize:10,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:7};
+  return(
+    <div className="slideIn" style={{padding:"16px 14px",borderTop:`1px solid ${C.line}`,
+      background:"#FAFBFC",display:"flex",flexDirection:"column",gap:14}}>
+
+      {/* description */}
+      <div>
+        <div style={sHd}>Fix description</div>
+        <div style={{padding:"10px 12px",borderRadius:8,lineHeight:1.6,fontSize:12,color:C.ink,
+          background:fix.isCascade?C.amberT:C.blueT2,
+          borderLeft:`3px solid ${fix.isCascade?C.amber:C.blue}`}}>
+          {fix.desc}
+        </div>
+      </div>
+
+      {rcData?(
+        <>
+          {/* root cause */}
+          <div>
+            <div style={sHd}>Root cause · {rcData.id}</div>
+            <div style={{padding:"12px",background:"#fff",border:`1px solid ${C.line}`,borderRadius:8,display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.ink,lineHeight:1.45}}>{rcData.title}</div>
+              {/* lineage */}
+              <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:5}}>
+                {rcData.chain.map((node,j,arr)=>(
+                  <React.Fragment key={j}>
+                    <div style={{padding:"3px 9px",borderRadius:6,position:"relative",
+                      background:j===rcData.breakAt?C.redBg:"#F5F6F8",
+                      border:`1px solid ${j===rcData.breakAt?C.red:C.line}`,
+                      fontSize:10,fontWeight:600,color:j===rcData.breakAt?C.red:C.ink2}}>
+                      {j===rcData.breakAt&&"⚠ "}{node}
+                      {j===rcData.breakAt&&<span style={{position:"absolute",top:-8,right:-4,
+                        background:C.red,color:"#fff",fontSize:7,fontWeight:700,
+                        padding:"1px 4px",borderRadius:999}}>break</span>}
+                    </div>
+                    {j<arr.length-1&&<span style={{color:C.ink3,fontSize:11}}>→</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+              <ConfBar value={rcData.confidence} colour={C.blue}/>
+            </div>
+          </div>
+
+          {/* evidence */}
+          <div>
+            <div style={sHd}>Evidence</div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {rcData.evidence.map((e,i)=>(
+                <div key={i} style={{display:"flex",gap:8,padding:"8px 10px",
+                  background:"#fff",border:`1px solid ${C.line}`,borderRadius:7,alignItems:"flex-start"}}>
+                  <span style={{color:C.green,fontWeight:700,fontSize:12,flexShrink:0,marginTop:1}}>✓</span>
+                  <span style={{fontSize:11,color:C.ink,flex:1,lineHeight:1.5}}>{e}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ):(
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px",
+          background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
+          <AIStar size={14} colour={C.blue} spin/>
+          <span style={{fontSize:12,color:C.ink2}}>Root Cause agent still analysing — details will appear once complete.</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── RC lookup map ─────────────────────────────────────────────────────────────
+const RC_MAP={"FX-RC1":ROOT_CAUSES[0],"FX-RC2":ROOT_CAUSES[1],"FX-RC3":ROOT_CAUSES[2],"FX-RC4":CASCADE_RC};
+
+// ── Combined Remediation + Simulation screen ──────────────────────────────────
+const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
+  const [fixes,setFixes]=useState(INITIAL_FIXES);
+  const [simming,setSimming]=useState(new Set());
+  const [results,setResults]=useState({});
+  const [log,setLog]=useState([]);
+  const [expandedFix,setExpandedFix]=useState(null);
+  const [cascadeRCDone,setCascadeRCDone]=useState(new Set());
+  const logRef=useRef(null);
+  const toggleExpand=id=>setExpandedFix(v=>v===id?null:id);
+
+  useEffect(()=>{
+    if(logRef.current) logRef.current.scrollTop=logRef.current.scrollHeight;
+  },[log]);
+
+  const simulate=useCallback((fix)=>{
+    if(simming.has(fix.id)||results[fix.id])return;
+    setSimming(s=>new Set([...s,fix.id]));
+    // add placeholder entry
+    setLog(prev=>[...prev,{key:fix.id,fixId:fix.id,fixTitle:fix.title,status:"simulating"}]);
+
+    setTimeout(()=>{
+      const map=cascade?SIM_RESULTS_CASCADE:SIM_RESULTS_CLEAN;
+      const res=map[fix.id]||{status:"safe",ftr:90,readiness:"+5pts",detail:"No issues found."};
+      setSimming(s=>{const n=new Set(s);n.delete(fix.id);return n;});
+
+      // If this cascade fix is safe, auto-resolve the parent cascade result
+      const isCascadeResolution=res.status==="safe"&&fix.isCascade;
+      setResults(r=>{
+        const u={...r,[fix.id]:res};
+        if(isCascadeResolution){
+          Object.keys(u).forEach(k=>{
+            if(u[k].status==="cascade"&&u[k].cascadeFix&&u[k].cascadeFix.id===fix.id)
+              u[k]={...u[k],status:"cascade-resolved"};
+          });
+        }
+        return u;
+      });
+      setLog(prev=>{
+        // replace simulating placeholder
+        const mapped=prev.map(e=>e.fixId===fix.id&&e.status==="simulating"?{...e,...res,status:res.status}:e);
+        // if resolving a cascade, flip the parent log entry too
+        if(isCascadeResolution){
+          return mapped.map(e=>
+            e.status==="cascade"&&e.cascadeFix&&e.cascadeFix.id===fix.id
+            ?{...e,status:"cascade-resolved"}:e
+          );
+        }
+        return mapped;
+      });
+
+      // auto-add cascade fix if new cascade detected
+      if(res.status==="cascade"&&res.cascadeFix){
+        setFixes(f=>{
+          if(f.find(x=>x.id===res.cascadeFix.id))return f;
+          return[...f,res.cascadeFix];
+        });
+        setTimeout(()=>{
+          setLog(prev=>[...prev,{key:"cascade-"+fix.id,status:"cascade-notify",cascadeFix:res.cascadeFix}]);
+        },200);
+      }
+    },1400);
+  },[simming,results,cascade]);
+
+  const resVals=Object.values(results);
+  const allSimulated=fixes.every(f=>results[f.id]);
+  const hasUnresolvedCascade=resVals.some(r=>r.status==="cascade");
+  const hasSafe=resVals.some(r=>r.status==="safe");
+  const canApply=allSimulated&&!hasUnresolvedCascade&&hasSafe;
+
+  const statusColour=s=>s==="safe"||s==="cascade-resolved"?C.green:s==="human"?C.amber:s==="cascade"?C.red:C.blue;
+  const statusBg   =s=>s==="safe"||s==="cascade-resolved"?C.greenBg:s==="human"?C.amberBg:s==="cascade"?C.redBg:C.blueT2;
+  const statusLabel=s=>s==="safe"?"✓ Safe":s==="human"?"👤 Needs human":s==="cascade"?"⚠ Cascade":s==="cascade-resolved"?"✓ Cascade resolved":"";
+  const statusIcon =s=>s==="safe"||s==="cascade-resolved"?"✓":s==="human"?"👤":"⚠";
+
+  const drawerFix=expandedFix?fixes.find(f=>f.id===expandedFix):null;
+
+  return(
+    <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:C.surface}}>
+      {/* header */}
+      <div style={{padding:"18px 32px",borderBottom:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",gap:14}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <Glyph a={A.rem} size={36}/>
+          <span style={{fontSize:16,color:C.ink3}}>+</span>
+          <div style={{width:36,height:36,borderRadius:999,background:C.green,color:"#fff",
+            display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:15}}>S</div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation & Simulation</div>
+          <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Simulate proposed fixes · resolve cascades · generate readiness score</div>
+        </div>
+        <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root causes</Btn>
+        <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
+      </div>
+
+      {/* split body */}
+      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+
+        {/* LEFT: Remediation plan */}
+        <div style={{width:400,borderRight:`1px solid ${C.line}`,display:"flex",flexDirection:"column",background:"#fff",flexShrink:0,overflow:"hidden"}}>
+          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted}}>
+            <div style={{fontSize:13,fontWeight:700}}>Remediation plan</div>
+            <div style={{fontSize:11,color:C.ink2,marginTop:2}}>{fixes.length} fixes · {fixes.reduce((s,f)=>s+f.records,0).toLocaleString()} records total</div>
+          </div>
+
+          <div style={{flex:1,minHeight:0,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
+            {fixes.map(fix=>{
+              const res=results[fix.id];
+              const isSim=simming.has(fix.id);
+              const rcDone=cascadeRCDone.has(fix.id);
+              const isExpanded=expandedFix===fix.id;
+              const rcData=RC_MAP[fix.id];
+              const sc=res?statusColour(res.status):C.line;
+              const canSim=!fix.isCascade||rcDone;
+              const confVal=fix.isCascade&&rcDone?CASCADE_RC.confidence:fix.confidence;
+              return(
+                <div key={fix.id} className={fix.isCascade?"slideIn":undefined}
+                  style={{border:`1px solid ${isExpanded?C.blue+"88":res?sc+"55":C.line}`,
+                    borderRadius:10,overflow:"hidden",
+                    borderLeft:`4px solid ${isExpanded?C.blue:res?sc:fix.isCascade?C.amber:C.line2}`,
+                    background:"#fff",
+                    boxShadow:isExpanded?`0 4px 16px ${C.blue}1A`:"none",
+                    transition:"border-color 140ms ease,box-shadow 140ms ease"}}>
+
+                  {/* clickable header */}
+                  <div onClick={()=>toggleExpand(fix.id)}
+                    style={{padding:"12px 14px",cursor:"pointer",
+                      background:fix.isCascade&&!res&&!rcDone?C.amberT:"#fff",
+                      userSelect:"none"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                      <Pill bg={C.muted} fg={C.ink2} style={{fontSize:10}}>{fix.id}</Pill>
+                      {fix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ cascade fix</Pill>}
+                      {res&&<Pill bg={statusBg(res.status)} fg={statusColour(res.status)}>{statusLabel(res.status)}</Pill>}
+                      <div style={{marginLeft:"auto",fontSize:12,color:C.ink3,
+                        transition:"transform 140ms ease",
+                        transform:isExpanded?"rotate(180deg)":"none"}}>▾</div>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:4,lineHeight:1.4}}>{fix.title}</div>
+                    <div style={{fontSize:11,color:C.ink2,marginBottom:8}}>{fix.records.toLocaleString()} records · {fix.entity}</div>
+                    {(canSim||res)&&<ConfBar value={confVal} colour={res?statusColour(res.status):C.blue}/>}
+                  </div>
+
+                  {/* footer */}
+                  <div style={{padding:"10px 14px",borderTop:`1px solid ${C.line}`,
+                    background:C.muted,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:10,color:C.ink3}}>{fix.field}</span>
+                    {!res&&!isSim&&canSim&&(
+                      <Btn size="sm" variant="soft" onClick={e=>{e.stopPropagation();simulate(fix);}}>Simulate →</Btn>
+                    )}
+                    {!res&&!isSim&&!canSim&&(
+                      <span style={{fontSize:10,color:C.ink2,fontStyle:"italic"}}>Analysis in progress…</span>
+                    )}
+                    {isSim&&(
+                      <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.ink2}}>
+                        <AIStar size={12} colour={C.blue} spin/>Simulating…
+                      </div>
+                    )}
+                    {res&&!isSim&&(
+                      <span style={{fontSize:10,color:statusColour(res.status),fontWeight:600}}>Simulated ✓</span>
+                    )}
+                  </div>
+
+                  {/* cascade mini RC agent — auto-runs when tile appears */}
+                  {fix.isCascade&&!rcDone&&(
+                    <CascadeRCMini onDone={()=>setCascadeRCDone(s=>new Set([...s,fix.id]))}/>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* apply footer */}
+          <div style={{padding:"14px 16px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+            <Btn variant="primary" size="md"
+              style={{width:"100%",justifyContent:"center",
+                ...(canApply?{animation:"glowApply 2.2s ease-in-out infinite",
+                  background:`linear-gradient(90deg,${C.green},#2e7d52,${C.green})`,
+                  backgroundSize:"200% 100%",
+                  backgroundAnimation:"gradientMove 3s ease infinite"}:{})}}
+              disabled={!canApply} onClick={onApply}>
+              ✓ Apply safe fixes &amp; finish
+            </Btn>
+            <div style={{fontSize:11,textAlign:"center",color:
+              !resVals.length?C.ink3:hasUnresolvedCascade?C.amber:!allSimulated?C.ink3:C.green}}>
+              {!resVals.length&&"Simulate at least one fix to proceed"}
+              {resVals.length>0&&hasUnresolvedCascade&&"⚠ Resolve cascade issues before applying"}
+              {resVals.length>0&&!hasUnresolvedCascade&&!allSimulated&&"Simulate remaining fixes to proceed"}
+              {canApply&&"✓ All cascades resolved — ready to apply"}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Simulation log + fix detail overlay */}
+        <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden",position:"relative"}}>
+
+          {/* log header */}
+          <div style={{padding:"14px 24px",borderBottom:`1px solid ${C.line}`,background:"#fff",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700}}>Simulation log</div>
+              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>Results appear here as you simulate each fix</div>
+            </div>
+            {log.length>0&&(
+              <div style={{display:"flex",gap:8}}>
+                {resVals.filter(r=>r.status==="safe"||r.status==="cascade-resolved").length>0&&
+                  <Pill bg={C.greenBg} fg={C.green}>✓ {resVals.filter(r=>r.status==="safe"||r.status==="cascade-resolved").length} safe</Pill>}
+                {resVals.filter(r=>r.status==="human").length>0&&
+                  <Pill bg={C.amberBg} fg={C.amber}>👤 {resVals.filter(r=>r.status==="human").length} human</Pill>}
+                {resVals.filter(r=>r.status==="cascade").length>0&&
+                  <Pill bg={C.redBg} fg={C.red}>⚠ {resVals.filter(r=>r.status==="cascade").length} cascade</Pill>}
+              </div>
+            )}
+          </div>
+
+          {/* log body */}
+          <div ref={logRef} style={{flex:1,minHeight:0,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:12}}>
+            {log.length===0&&(
+              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:40}}>
+                <div style={{width:56,height:56,borderRadius:999,background:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>⚗</div>
+                <div style={{fontSize:14,fontWeight:600,color:C.ink2}}>No simulations run yet</div>
+                <div style={{fontSize:12,textAlign:"center",maxWidth:280,lineHeight:1.6,color:C.ink2}}>Click <b>Simulate →</b> on any fix in the plan to model its impact on the shadow ledger before committing.</div>
+              </div>
+            )}
+
+            {log.map((entry,i)=>(
+              <div key={entry.key||i} className="slideIn">
+
+                {entry.status==="simulating"&&(
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
+                    background:`linear-gradient(135deg,#F4F8FF,#fff)`,
+                    border:`1px solid ${C.blue}33`,borderRadius:10,
+                    position:"relative",overflow:"hidden",
+                    boxShadow:`0 0 0 1px ${C.blue}15, 0 4px 14px ${C.blue}12`}}>
+                    {/* scan sweep */}
+                    <div style={{position:"absolute",inset:0,pointerEvents:"none",
+                      background:`linear-gradient(90deg,transparent,${C.blue}14,transparent)`,
+                      animation:"shimmerSlide 1.6s ease-in-out infinite"}}/>
+                    <div style={{width:40,height:40,borderRadius:999,flexShrink:0,
+                      background:C.blueT2,border:`1.5px solid ${C.blue}44`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      boxShadow:`0 0 14px ${C.blue}44`,position:"relative"}}>
+                      <AIStar size={18} colour={C.blue} spin/>
+                    </div>
+                    <div style={{flex:1,position:"relative"}}>
+                      <div style={{fontSize:13,fontWeight:700}}>{entry.fixTitle}</div>
+                      <div style={{fontSize:11,color:C.blue,marginTop:3,display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{display:"inline-block",width:6,height:6,borderRadius:999,background:C.blue,animation:"aiPulse 1s ease-in-out infinite"}}/>
+                        Replaying on shadow ledger · checking downstream consumers
+                      </div>
+                    </div>
+                    <div style={{fontSize:11,color:C.blue,fontWeight:700,
+                      padding:"4px 10px",borderRadius:999,background:C.blueT2,
+                      border:`1px solid ${C.blue}44`,position:"relative"}}>Running</div>
+                  </div>
+                )}
+
+                {entry.status==="cascade-notify"&&(
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                    background:C.amberT,border:`1px solid ${C.amber}55`,borderRadius:8}}>
+                    <div style={{width:30,height:30,borderRadius:999,background:C.amberBg,
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>↻</div>
+                    <div style={{flex:1}}>
+                      <span style={{fontSize:12,fontWeight:700,color:C.amber}}>Cascade fix auto-added · Root Cause agent running</span>
+                      <div style={{fontSize:11,color:C.ink2,marginTop:3,lineHeight:1.5}}>
+                        <b>{entry.cascadeFix.id}</b> — {entry.cascadeFix.title}
+                        <br/>Analysing downstream break. Simulate once Root Cause agent completes.
+                      </div>
+                    </div>
+                    <AIStar size={14} colour={C.amber} spin/>
+                  </div>
+                )}
+
+                {["safe","human","cascade","cascade-resolved"].includes(entry.status)&&(
+                  <div className="stampIn" style={{background:"#fff",
+                    border:`1px solid ${statusColour(entry.status)}55`,
+                    borderRadius:10,overflow:"hidden",
+                    borderLeft:`4px solid ${statusColour(entry.status)}`,
+                    boxShadow:`0 2px 12px ${statusColour(entry.status)}18`}}>
+                    <div style={{padding:"14px 16px"}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:10}}>
+                        <div style={{width:36,height:36,borderRadius:999,flexShrink:0,
+                          background:statusBg(entry.status),color:statusColour(entry.status),
+                          display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18}}>
+                          {statusIcon(entry.status)}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>{entry.fixTitle}</div>
+                          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                            <Pill bg={statusBg(entry.status)} fg={statusColour(entry.status)}>{statusLabel(entry.status)}</Pill>
+                            {entry.ftr&&<Pill bg={C.muted} fg={C.ink2}>{entry.ftr}% first-time-right</Pill>}
+                            {entry.readiness&&entry.status!=="cascade"&&<Pill bg={C.muted} fg={C.ink2}>Readiness {entry.readiness}</Pill>}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:C.ink2,lineHeight:1.6}}>{entry.detail}</div>
+                      {entry.note&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"6px 10px",background:C.amberT,borderRadius:6}}>⚠ {entry.note}</div>}
+                      {entry.reason&&<div style={{fontSize:11,color:C.amber,marginTop:6,padding:"8px 10px",background:C.amberT,borderRadius:6,lineHeight:1.5}}>
+                        <b>Why human review is needed:</b> {entry.reason}
+                      </div>}
+                    </div>
+                    {entry.status==="cascade"&&entry.cascadeChain&&(
+                      <div style={{padding:"10px 16px",borderTop:`1px solid ${C.line}`,background:C.redT,
+                        display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,color:C.red,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:4}}>cascade ⚠</span>
+                        {entry.cascadeChain.map((s,j,arr)=>(
+                          <React.Fragment key={j}>
+                            <span style={{fontSize:11,fontWeight:600,color:C.red}}>{s}</span>
+                            {j<arr.length-1&&<span style={{color:C.red,fontSize:12}}>→</span>}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+                    {entry.status==="cascade-resolved"&&(
+                      <div style={{padding:"8px 16px",borderTop:`1px solid ${C.line}`,background:C.greenT,
+                        display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:11,color:C.green,fontWeight:700}}>✓ Cascade resolved</span>
+                        <span style={{fontSize:11,color:C.ink2}}>Downstream fix applied and verified — safe to include in submission.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            ))}
+          </div>
+
+          {/* ── Fix detail overlay drawer ─────────────────────────────────── */}
+          {drawerFix&&(
+            <div className="slideInRight" style={{
+              position:"absolute",inset:0,zIndex:20,
+              background:"#fff",display:"flex",flexDirection:"column",
+              borderLeft:`1px solid ${C.line}`,
+              boxShadow:"-8px 0 32px rgba(0,0,0,.10)"}}>
+
+              {/* drawer header */}
+              <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.line}`,
+                background:"#fff",display:"flex",alignItems:"flex-start",gap:14,flexShrink:0}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:7,flexWrap:"wrap"}}>
+                    <Pill bg={C.muted} fg={C.ink2} style={{fontSize:10}}>{drawerFix.id}</Pill>
+                    {drawerFix.isCascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:10}}>↻ cascade fix</Pill>}
+                    {results[drawerFix.id]&&(
+                      <Pill bg={statusBg(results[drawerFix.id].status)} fg={statusColour(results[drawerFix.id].status)}>
+                        {statusLabel(results[drawerFix.id].status)}
+                      </Pill>
+                    )}
+                  </div>
+                  <div style={{fontSize:15,fontWeight:700,lineHeight:1.35,marginBottom:4}}>{drawerFix.title}</div>
+                  <div style={{fontSize:11,color:C.ink2}}>{drawerFix.records.toLocaleString()} records · {drawerFix.entity} · <span style={{fontFamily:"monospace",fontSize:10}}>{drawerFix.field}</span></div>
+                </div>
+                <button onClick={()=>setExpandedFix(null)}
+                  style={{width:30,height:30,borderRadius:999,border:`1px solid ${C.line}`,
+                    background:"#fff",cursor:"pointer",fontSize:14,color:C.ink2,flexShrink:0,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    transition:"all 120ms ease"}}
+                  onMouseEnter={e=>e.target.style.background=C.muted}
+                  onMouseLeave={e=>e.target.style.background="#fff"}>✕</button>
+              </div>
+
+              {/* drawer body */}
+              <div style={{flex:1,overflowY:"auto"}}>
+                <FixDrawer
+                  fix={drawerFix}
+                  rcData={(!drawerFix.isCascade||cascadeRCDone.has(drawerFix.id))?RC_MAP[drawerFix.id]:null}/>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── E&O form field helpers ────────────────────────────────────────────────────
+const EoField=({label,value,agent=false,required=false,hint})=>(
+  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <span style={{fontSize:10,fontWeight:700,color:C.ink2,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</span>
+      {agent&&<Pill bg={C.blueT2} fg={C.blue} style={{fontSize:9}}>✦ Agent-generated</Pill>}
+      {required&&!agent&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:9}}>Required</Pill>}
+    </div>
+    {value?(
+      <div style={{padding:"8px 12px",borderRadius:7,fontSize:12,lineHeight:1.6,color:C.ink,
+        background:agent?C.blueT2:"#fff",
+        border:`1px solid ${agent?C.blueT:C.line}`,
+        borderLeft:`3px solid ${agent?C.blue:C.line2}`}}>
+        {value}
+      </div>
+    ):(
+      <div style={{padding:"8px 12px",borderRadius:7,fontSize:12,color:C.ink3,fontStyle:"italic",
+        background:C.muted,border:`1px dashed ${C.line2}`}}>
+        {hint||"Complete manually"}
+      </div>
+    )}
+  </div>
+);
+
+const EoSection=({num,title,children,open:initOpen=false})=>{
+  const [open,setOpen]=useState(initOpen);
+  return(
+    <div style={{border:`1px solid ${C.line}`,borderRadius:8,overflow:"hidden"}}>
+      <div onClick={()=>setOpen(v=>!v)}
+        style={{padding:"10px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+          background:open?"#fff":C.muted}}>
+        <div style={{width:26,height:26,borderRadius:6,background:C.blue,color:"#fff",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{num}</div>
+        <span style={{fontSize:13,fontWeight:600,flex:1}}>{title}</span>
+        <span style={{fontSize:12,color:C.ink3,transition:"transform 140ms ease",transform:open?"rotate(180deg)":"none"}}>▾</span>
+      </div>
+      {open&&<div style={{padding:"14px 16px",display:"flex",flexDirection:"column",gap:12,borderTop:`1px solid ${C.line}`}}>{children}</div>}
+    </div>
+  );
+};
+
+// ── Done ──────────────────────────────────────────────────────────────────────
+const DoneScreen=({onRestart})=>{
+  const [jira,setJira]=useState(null);
+  const [eoOpen,setEoOpen]=useState(false);
+  const [eoGenerating,setEoGenerating]=useState(false);
+  const [eoReady,setEoReady]=useState(false);
+  const raiseJira=()=>{
+    setJira("raising");
+    setTimeout(()=>setJira({id:"RR-2042",url:"jira.whalecapital.com/RR-2042",assignee:"Sarah Chen · Compliance"}),1400);
+  };
+  const generateEo=()=>{
+    setEoGenerating(true);
+    setTimeout(()=>{setEoGenerating(false);setEoReady(true);setEoOpen(true);},2000);
+  };
+
+  return(
+    <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:C.surface,overflow:"hidden"}}>
+
+      {/* ── Hero banner ── */}
+      <div style={{flexShrink:0,padding:"20px 36px",background:"#fff",borderBottom:`1px solid ${C.line}`,
+        display:"flex",alignItems:"center",gap:20}}>
+        {/* checkmark orb */}
+        <div style={{width:52,height:52,borderRadius:999,background:C.greenBg,flexShrink:0,
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
+          boxShadow:`0 0 0 8px ${C.green}12`,animation:"aiPulse 3s ease-in-out 1"}}>✓</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Session complete · 3 of 4 fixes applied</div>
+          <div style={{fontSize:12,color:C.ink2,marginTop:3}}>Whale Capital · MiFID II / CFTC P45 · DFR Reporting Platform · 13 May 2026</div>
+        </div>
+        {/* KPI strip */}
+        <div style={{display:"flex",gap:2,flexShrink:0}}>
+          {[
+            {v:"691",l:"records\nback-reported",c:C.green,bg:C.greenT},
+            {v:"5,411",l:"total records\nreviewed",c:C.ink,bg:C.muted},
+            {v:"93%",l:"avg first-\ntime-right",c:C.blue,bg:C.blueT2},
+            {v:"1",l:"pending\nCompliance",c:C.amber,bg:C.amberT},
+          ].map(({v,l,c,bg},i)=>(
+            <div key={i} style={{padding:"10px 16px",background:bg,borderRadius:8,textAlign:"center",minWidth:80}}>
+              <div style={{fontSize:22,fontWeight:700,color:c,lineHeight:1}}>{v}</div>
+              <div style={{fontSize:9,color:C.ink2,marginTop:3,whiteSpace:"pre-line",lineHeight:1.3}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Two-column body ── */}
+      <div style={{flex:1,minHeight:0,display:"flex",overflow:"hidden"}}>
+
+        {/* LEFT: fixes summary + compliance action */}
+        <div style={{width:380,flexShrink:0,borderRight:`1px solid ${C.line}`,
+          display:"flex",flexDirection:"column",background:"#fff",overflow:"hidden"}}>
+
+          {/* applied */}
+          <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.line}`,background:C.greenT,flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,fontWeight:700,color:C.green}}>✓ Auto-applied</span>
+              <Pill bg="#fff" fg={C.green}>3 fixes</Pill>
+              <Pill bg="#fff" fg={C.ink2}>691 records</Pill>
+            </div>
+          </div>
+          <div style={{flexShrink:0}}>
+            {[
+              {id:"FX-RC1",t:"Update broker_lei_ref_dict",d:"415 records · 1_14_counterparty_2 · FTR 96%",ftr:96},
+              {id:"FX-RC2",t:"Add intragroup_flag → 1_17 rule",d:"184 records · 1_17_cp2_fin_entity_indicator · FTR 91%",ftr:91},
+              {id:"FX-RC4",t:"Rebuild DFR recon feed key",d:"92 records · cascade fix · fully resolved",ftr:81,cascade:true},
+            ].map((r,i)=>(
+              <div key={i} style={{padding:"12px 20px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:28,height:28,borderRadius:999,background:C.greenBg,flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center",color:C.green,fontSize:13,fontWeight:700}}>✓</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{color:C.ink3,fontSize:10,fontWeight:700}}>{r.id}</span>
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.t}</span>
+                    {r.cascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:9,flexShrink:0}}>cascade</Pill>}
+                  </div>
+                  <div style={{fontSize:10,color:C.ink2,marginTop:2}}>{r.d}</div>
+                </div>
+                <div style={{width:36,height:36,flexShrink:0}}>
+                  <svg viewBox="0 0 36 36" width="36" height="36">
+                    <circle cx="18" cy="18" r="15" fill="none" stroke={C.line} strokeWidth="3"/>
+                    <circle cx="18" cy="18" r="15" fill="none" stroke={C.green} strokeWidth="3"
+                      strokeDasharray={`${r.ftr*0.942} 94.2`} strokeLinecap="round"
+                      transform="rotate(-90 18 18)"/>
+                    <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="700" fill={C.green}>{r.ftr}%</text>
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* pending compliance */}
+          <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
+            <div style={{padding:"12px 20px",borderBottom:`1px solid ${C.line}`,background:C.amberT,flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,fontWeight:700,color:C.amber}}>⚠ Pending Compliance review</span>
+              <Pill bg={C.redBg} fg={C.red} style={{fontSize:9}}>blocks back-reporting</Pill>
+            </div>
+            <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                <div style={{width:36,height:36,borderRadius:999,background:C.amberBg,flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>👤</div>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                    <span style={{fontSize:11,fontWeight:700}}>FX-RC3</span>
+                    <Pill bg={C.muted} fg={C.ink2} style={{fontSize:9}}>ISS-1289</Pill>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:600,lineHeight:1.4}}>6dp precision on DFR Original_TargetAmount → 1_31_notional_amt_leg_1</div>
+                </div>
+              </div>
+
+              <div style={{padding:10,background:C.amberT,borderRadius:7,borderLeft:`3px solid ${C.amber}`,fontSize:11,color:C.ink,lineHeight:1.55}}>
+                Precision change may breach valuation tolerance on 312 records against counterparty submissions.
+                Also check 1_31_notional_amt_leg_2 (Original_SettlementAmount — same pipeline).
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["Records","4,812"],["FTR score","88%"],["Field","1_31_notional_amt_leg_1"],["Dependency","1_31_notional_amt_leg_2 ⚠"]].map(([l,v],i)=>(
+                  <div key={i} style={{padding:"8px 10px",background:C.muted,borderRadius:7}}>
+                    <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+                    <div style={{fontSize:11,fontWeight:600,marginTop:2,wordBreak:"break-all"}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Jira row */}
+              <div style={{padding:12,borderRadius:8,border:`1px solid ${jira&&jira.id?C.green+"55":C.line}`,
+                background:jira&&jira.id?C.greenT:"#fff",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:26,height:26,borderRadius:6,background:"#0052CC",color:"#fff",flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>J</div>
+                {jira===null&&(
+                  <><div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:700}}>Route to Compliance via Jira</div>
+                    <div style={{fontSize:10,color:C.ink2}}>Pre-filled · sign-off required to submit E&amp;O</div>
+                  </div>
+                  <Btn variant="primary" size="sm" onClick={raiseJira}>Raise ticket →</Btn></>
+                )}
+                {jira==="raising"&&(
+                  <><div style={{flex:1,fontSize:11,fontWeight:600}}>Creating ticket…</div>
+                  <AIStar size={16} colour={C.blue} spin/></>
+                )}
+                {jira&&jira.id&&(
+                  <><div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:11,fontWeight:700,color:C.green}}>✓ Ticket raised</span>
+                      <Pill bg="#fff" fg={C.blue}>{jira.id}</Pill>
+                    </div>
+                    <div style={{fontSize:10,color:C.ink2,marginTop:1}}>{jira.assignee} · High priority</div>
+                  </div>
+                  <Btn variant="default" size="sm">Open ↗</Btn></>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* left footer */}
+          <div style={{flexShrink:0,padding:"14px 20px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",gap:8}}>
+            <Btn variant="default" size="sm" onClick={onRestart} style={{flex:1}}>← Back to overview</Btn>
+            <Btn variant="primary" size="sm" disabled={!(jira&&jira.id)} style={{flex:1}}>Request sign-off →</Btn>
+          </div>
+        </div>
+
+        {/* RIGHT: E&O form */}
+        <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+          {/* E&O header */}
+          <div style={{flexShrink:0,padding:"16px 24px",borderBottom:`1px solid ${C.line}`,
+            background:eoReady?"linear-gradient(135deg,#EAF3FB,#fff)":"#fff",
+            display:"flex",alignItems:"center",gap:14,
+            transition:"background 300ms ease"}}>
+            <div style={{width:42,height:42,borderRadius:10,flexShrink:0,
+              background:"linear-gradient(135deg,#003078,#005EB8)",color:"#fff",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:13,fontWeight:800,letterSpacing:"-0.02em"}}>FCA</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:14,fontWeight:700}}>Transaction Reporting — Errors &amp; Omissions Notification</span>
+                {eoReady&&<Pill bg={C.blue} fg="#fff" style={{fontSize:9}}>✦ Pre-filled by En:ACT agents</Pill>}
+              </div>
+              <div style={{fontSize:11,color:C.ink2,marginTop:2}}>FCA MRT · mrt@fca.org.uk · Commission Delegated Regulation (EU) 2017/590</div>
+            </div>
+            {!eoReady&&!eoGenerating&&(
+              <Btn variant="primary" size="md" onClick={generateEo}>
+                <AIStar size={11} colour="#fff"/>Generate E&amp;O →
+              </Btn>
+            )}
+            {eoGenerating&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.blue,fontWeight:600}}>
+                <AIStar size={15} colour={C.blue} spin/>Generating…
+              </div>
+            )}
+            {eoReady&&(
+              <Btn variant="ghost" size="sm" onClick={()=>setEoOpen(v=>!v)}>
+                {eoOpen?"Collapse ▲":"Expand ▼"}
+              </Btn>
+            )}
+          </div>
+
+          {/* generating shimmer */}
+          {eoGenerating&&(
+            <div style={{padding:"28px 24px",display:"flex",flexDirection:"column",gap:14,alignItems:"center"}}>
+              <div style={{width:"100%",height:7,background:C.line,borderRadius:999,overflow:"hidden",position:"relative"}}>
+                <div style={{position:"absolute",inset:0,
+                  background:`linear-gradient(90deg,${C.blue},${C.blueT2},${C.blue})`,
+                  backgroundSize:"200% 100%",animation:"shimmerSlide .9s ease infinite"}}/>
+              </div>
+              <div style={{fontSize:12,color:C.ink2,display:"flex",alignItems:"center",gap:8}}>
+                <AIStar size={13} colour={C.blue} spin/>
+                Pre-filling sections 2.2–2.7 from Root Cause · sections 3.2–3.3 from Simulation…
+              </div>
+            </div>
+          )}
+
+          {/* empty state */}
+          {!eoReady&&!eoGenerating&&(
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:40,color:C.ink3}}>
+              <div style={{width:64,height:64,borderRadius:999,background:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>📋</div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:15,fontWeight:600,color:C.ink2,marginBottom:6}}>E&amp;O notification ready to generate</div>
+                <div style={{fontSize:12,lineHeight:1.6,maxWidth:320}}>
+                  Click <b>Generate E&amp;O →</b> to pre-fill sections 2.2–2.7 from Root Cause findings
+                  and sections 3.2–3.3 from Simulation results.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* E&O form body */}
+          {eoReady&&eoOpen&&(
+            <>
+              <div className="slideIn" style={{flex:1,minHeight:0,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:10}}>
+
+                <EoSection num="1" title="General Details">
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <EoField label="1.0 Date" value="13 May 2026" agent/>
+                    <EoField label="1.1 Executing entity" value="Whale Capital" agent/>
+                    <EoField label="1.2 LEI" value="6PTKHDJ8HDUF78PFWH30" agent/>
+                    <EoField label="1.3 Type of firm" value="Electronic Money Institution / PSP" agent/>
+                    <EoField label="1.4 Submitting ARM" value="DFR Reporting Platform" agent/>
+                    <EoField label="1.5 Contact name &amp; title" required hint="Enter contact name and job title"/>
+                    <EoField label="1.6 Contact email" required hint="Enter email address"/>
+                    <EoField label="1.7 Contact telephone" required hint="Enter telephone number"/>
+                  </div>
+                </EoSection>
+
+                <EoSection num="2" title="Details of Errors or Omissions" open>
+                  <EoField label="2.1 Relevant regulation" agent
+                    value="Commission Delegated Regulation (EU) 2017/590, Article 15(2) — MiFID II transaction reporting; CFTC Part 45 swap data reporting"/>
+                  <EoField label="2.2 Details of issue and scope" agent
+                    value="3 structural data errors across FX Swap/Forward records affecting 5,411 reports via DFR_Reporting_RAW_Feed: (1) CP2 LEI lookup failure — broker_lei_ref_dict missing 3 counterparties onboarded post 14 Jan 2026, 415 records, field 1_14_counterparty_2; (2) CP2 financial entity indicator mismatch — intragroup_flag absent from 1_17 derivation logic, 184 records; (3) Notional precision loss — Original_TargetAmount at 2dp with no expansion step, 4,812 records, field 1_31_notional_amt_leg_1."/>
+                  <EoField label="2.3 Field(s) with error / omission" agent
+                    value="1_14_counterparty_2 (415) · 1_17_counterparty_2_financial_entity_indicator (184) · 1_31_notional_amt_leg_1 (4,812). Secondary: 1_15_counterparty_2_identifier_source (89) and 1_31_notional_amt_leg_2 (assessment pending)."/>
+                  <EoField label="2.4 Root cause" agent
+                    value="(1) broker_lei_ref_dict not updated post 3 new onboardings after 14 Jan 2026 — CLIENT_ID → PartyFile.TradePartyValue lookup failing. (2) 1_17 derivation references TradePartyValue LEI only; intragroup_flag not consulted — confirmed absent in lineage mapping. (3) DFR Formatting step maps Original_TargetAmount 1-1 to 1_31 with no precision expansion — 2dp transmitted where 6dp required."/>
+                  <EoField label="2.5 How discovered" agent
+                    value="Detected by En:ACT Autonomous Root Cause Agent on 09 May 2026 via automated lineage analysis. Validated by DFR lineage mapping audit."/>
+                  <EoField label="2.6 Period for which issue occurred" agent
+                    value="Issues 1 &amp; 2: estimated onset 14 Jan 2026 (last dict refresh); detected 09 May 2026. Issue 3: onset under review — pipeline unchanged for extended period; back-reporting window TBC pending Compliance sign-off."/>
+                  <EoField label="2.7 Total reports impacted" agent
+                    value="5,411 confirmed (415 + 184 + 4,812). 691 remediated and safe to back-report (FX-RC1 + FX-RC2 + FX-RC4, avg FTR 93%). 4,812 (FX-RC3) pending Compliance review."/>
+                </EoSection>
+
+                <EoSection num="3" title="Remediation &amp; Back-Reporting" open>
+                  <EoField label="3.1 Oversight responsibility" required hint="Name the individual or committee with oversight"/>
+                  <EoField label="3.2 Actions taken to remediate" agent
+                    value="En:ACT auto-applied 3 fixes: (1) broker_lei_ref_dict updated — 415 records re-derived and back-reported; (2) intragroup_flag → 1_17 derivation rule added — 184 records corrected; (3) DFR recon feed key rebuilt for 92 cascade records. Outstanding: FX-RC3 precision fix pending Compliance sign-off (312-record valuation tolerance risk). Assessment of 1_31_notional_amt_leg_2 outstanding."/>
+                  <EoField label="3.3 Total transactions to back-report" agent
+                    value="691 back-reported (readiness 97.3%). 4,812 pending Compliance sign-off (FX-RC3, est. 10 business days from approval)."/>
+                  <EoField label="3.4 Systems &amp; controls weaknesses" required hint="Detail weaknesses identified"/>
+                  <EoField label="3.5 Plans to address weaknesses" required hint="Detail remediation plans for control gaps"/>
+                </EoSection>
+
+                <EoSection num="4" title="On-Going Monitoring &amp; Governance">
+                  <EoField label="4.1 Planned audit / compliance monitoring" required hint="Detail planned reviews and scope"/>
+                  <EoField label="4.4 Last reconciliation summary" agent
+                    value="Reconciliation rate: 89.5% (↓1.9%). 10,584 breaks. 7,456 open issues across 3 clusters. En:ACT monitoring active — next refresh 16 May 2026."/>
+                </EoSection>
+
+              </div>
+
+              {/* sticky footer — always visible */}
+              <div style={{flexShrink:0,padding:"12px 24px",borderTop:`1px solid ${C.line}`,background:"#fff",
+                display:"flex",alignItems:"center",gap:10}}>
+                {!jira?(
+                  <div style={{fontSize:11,color:C.amber,display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}>
+                    <span style={{flexShrink:0}}>⚠</span>
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Raise Jira ticket for FX-RC3 Compliance review before submitting</span>
+                  </div>
+                ):(
+                  <div style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:6,flex:1}}>
+                    <span>✓</span><span>Compliance ticket raised — ready to submit</span>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8,flexShrink:0}}>
+                  <Btn variant="default" size="md">↓ Download PDF draft</Btn>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* E&O ready but collapsed */}
+          {eoReady&&!eoOpen&&(
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:40}}>
+              <div style={{width:56,height:56,borderRadius:999,background:C.blueT2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>✦</div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.blue}}>E&amp;O form pre-filled</div>
+                <div style={{fontSize:12,color:C.ink2,marginTop:4}}>7 sections · 14 agent-generated fields · 5 required fields</div>
+              </div>
+              <Btn variant="primary" size="md" onClick={()=>setEoOpen(true)}>Review &amp; submit →</Btn>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Tweaks panel ──────────────────────────────────────────────────────────────
+const TweaksPanel=({cascadeOn,setCascade})=>{
+  const [open,setOpen]=useState(false);
+  return(
+    <>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{position:"fixed",right:16,bottom:16,zIndex:9999,
+          width:40,height:40,borderRadius:999,border:`1.5px solid ${C.blue}`,
+          background:open?C.blue:"#fff",color:open?"#fff":C.blue,
+          cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",
+          boxShadow:"0 4px 12px rgba(0,0,0,0.12)",transition:"all 140ms ease"}}>⚙</button>
+      {open&&(
+        <div className="twk-panel">
+          <div className="twk-hd"><b>Tweaks</b><button className="twk-x" onClick={()=>setOpen(false)}>✕</button></div>
+          <div className="twk-body">
+            <div className="twk-sect">Simulation behaviour</div>
+            <div className="twk-sub">Controls what happens when FX-RC2 is simulated.</div>
+            <div className="twk-row-h">
+              <span className="twk-lbl">Cascade mode</span>
+              <button type="button" className="twk-toggle" data-on={cascadeOn?"1":"0"}
+                onClick={()=>setCascade(v=>!v)}><i/></button>
+            </div>
+            <div className="twk-hint">On: FX-RC2 simulation triggers a downstream cascade — a new fix is auto-added to the plan. Off: all three fixes simulate cleanly.</div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App(){
+  const [stage,   setStage   ]=useState("idle");
+  const [cascade, setCascade ]=useState(true);
+
+  const startAgent=id=>{
+    setStage(`running:${id}`);
+    setTimeout(()=>setStage(id==="root"?"review:root":"remediation"),A[id].duration);
+  };
+
+  const sidebar=(
+    <div style={{width:200,background:C.navy,color:"#fff",padding:"22px 16px",display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"0 4px 18px",borderBottom:"1px solid #ffffff20",marginBottom:14}}>
+        <AIStar size={16} colour="#fff"/>
+        <span style={{fontSize:14,fontWeight:700}}>En:ACT</span>
+      </div>
+      {["Overview","Accuracy","Completeness","Timeliness","Benchmarking"].map((n,i)=>(
+        <div key={i} style={{padding:"8px 10px",borderRadius:6,background:i===0?"#ffffff15":"transparent",fontSize:12,color:i===0?"#fff":"#ffffffb0",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <span style={{width:8,height:8,borderRadius:2,background:"#ffffff40"}}/>{n}
+        </div>
+      ))}
+      <div style={{marginTop:16,marginBottom:6,fontSize:9,color:"#ffffff60",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:10}}>Re:ACT</div>
+      {["Issue management","Remediation","Sign-off"].map((n,i)=>(
+        <div key={i} style={{padding:"8px 10px",fontSize:12,color:"#ffffffb0",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <span style={{width:8,height:8,borderRadius:2,background:"#ffffff40"}}/>{n}
+        </div>
+      ))}
+      <div style={{flex:1}}/>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:10,border:"1px solid #ffffff20",borderRadius:8}}>
+        <div style={{width:26,height:26,borderRadius:999,background:"#5EA0DF",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>MB</div>
+        <div>
+          <div style={{fontSize:12,fontWeight:600}}>Sarah Chen</div>
+          <div style={{fontSize:10,opacity:.6}}>Whale Capital</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{width:"100%",height:"100vh",display:"flex",overflow:"hidden",background:C.surface}}>
+      <TweaksPanel cascadeOn={cascade} setCascade={setCascade}/>
+      {sidebar}
+      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,overflow:"hidden",position:"relative"}}>
+        {stage!=="idle"&&stage!=="done"&&(
+          <div style={{padding:"14px 36px 0",display:"flex"}}>
+            <Tracker stage={stage}/>
+          </div>
+        )}
+        {stage==="idle"        &&<Overview onTrigger={()=>startAgent("root")}/>}
+        {stage==="running:root"&&<AgentRunning agent={A.root}/>}
+        {stage==="review:root" &&<ReviewRoot onNext={()=>startAgent("rem")} onCancel={()=>setStage("idle")}/>}
+        {stage==="running:rem" &&<AgentRunning agent={A.rem}/>}
+        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("done")} onBack={()=>setStage("review:root")} onCancel={()=>setStage("idle")}/>}
+        {stage==="done"        &&<DoneScreen onRestart={()=>setStage("idle")}/>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
