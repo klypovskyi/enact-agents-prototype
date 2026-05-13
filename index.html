@@ -694,8 +694,8 @@ const ReviewRoot=({onNext,onCancel})=>{
           <Glyph a={A.root} size={44}/>
           <div style={{flex:1}}>
             <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Step 1 · Autonomous Root Cause</div>
-            <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>3 structural root causes identified across DFR fields</div>
-            <div style={{fontSize:12,color:C.ink2,marginTop:6}}>Detects recurring inaccurate data patterns across: (1) Fields, (2) Asset Classes, (3) Counterparties, and (4) Time Periods · avg confidence 80%</div>
+            <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>Review and select root causes to remediate</div>
+            <div style={{fontSize:12,color:C.ink2,marginTop:6}}>Select the issues you want to fix — deselect any you want to defer for now</div>
           </div>
           <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
         </div>
@@ -1219,7 +1219,7 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
         </div>
         <div style={{flex:1}}>
           <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation</div>
-          <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Test each fix before applying — nothing changes until you say so</div>
+          <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Simulate and apply fixes to your data</div>
         </div>
         <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root causes</Btn>
         <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
