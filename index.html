@@ -1645,9 +1645,26 @@ const DoneScreen=({onRestart})=>{
           </div>
 
           {/* left footer */}
-          <div style={{flexShrink:0,padding:"14px 20px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",gap:8}}>
-            <Btn variant="default" size="sm" onClick={onRestart} style={{flex:1}}>← Back to overview</Btn>
-            <Btn variant="primary" size="sm" disabled={!(jira&&jira.id)} style={{flex:1}}>Request sign-off →</Btn>
+          <div style={{flexShrink:0,padding:"14px 20px",borderTop:`1px solid ${C.line}`,background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{display:"flex",gap:8}}>
+              <Btn variant="default" size="sm" onClick={onRestart} style={{flex:1}}>← Back to overview</Btn>
+              <Btn variant="primary" size="sm"
+                disabled={!(jira&&jira.id&&eoReady)}
+                style={{flex:2,justifyContent:"center",
+                  ...((jira&&jira.id&&eoReady)?{
+                    animation:"glowApply 2.2s ease-in-out infinite",
+                    background:`linear-gradient(90deg,${C.blue},${C.blueH},${C.blue})`,
+                    backgroundSize:"200% 100%"}:{})}}>
+                Submit remediation pack →
+              </Btn>
+            </div>
+            <div style={{fontSize:11,textAlign:"center",color:
+              (jira&&jira.id&&eoReady)?C.green:C.ink3}}>
+              {!(jira&&jira.id)&&!eoReady&&"Raise a Compliance ticket and generate the E&O report to proceed"}
+              {(jira&&jira.id)&&!eoReady&&"Generate the E&O report to proceed"}
+              {!(jira&&jira.id)&&eoReady&&"Raise a Compliance ticket to proceed"}
+              {(jira&&jira.id&&eoReady)&&"✓ Ready — all outputs complete"}
+            </div>
           </div>
         </div>
 
