@@ -660,7 +660,7 @@ const AgentRunning=({agent})=>{
 
 // ── Root Cause review ─────────────────────────────────────────────────────────
 const ReviewRoot=({onNext,onCancel})=>{
-  const [openId,setOpenId]=useState(null);
+  const [openId,setOpenId]=useState("RC1");
   const [selected,setSelected]=useState(()=>new Set(ROOT_CAUSES.map(r=>r.id)));
 
   const toggleSel=(id,e)=>{e.stopPropagation();setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});};
