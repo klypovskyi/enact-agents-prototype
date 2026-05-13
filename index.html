@@ -322,6 +322,24 @@ const ConfBar=({value,colour=C.blue})=>(
   </div>
 );
 
+// ── Live clock ────────────────────────────────────────────────────────────────
+const Clock=()=>{
+  const [t,setT]=useState(()=>new Date());
+  useEffect(()=>{const id=setInterval(()=>setT(new Date()),30000);return()=>clearInterval(id);},[]);
+  const pad=n=>String(n).padStart(2,"0");
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,
+      fontSize:11,fontWeight:600,color:C.ink2,
+      padding:"5px 12px",borderRadius:999,background:C.muted,border:`1px solid ${C.line}`}}>
+      <span style={{fontSize:12,lineHeight:1}}>🕐</span>
+      <span>{t.getDate()} {months[t.getMonth()]} {t.getFullYear()}</span>
+      <span style={{color:C.line2,fontWeight:400}}>·</span>
+      <span style={{color:C.ink,fontWeight:700}}>{pad(t.getHours())}:{pad(t.getMinutes())}</span>
+    </div>
+  );
+};
+
 // ── Tracker (2-step) ──────────────────────────────────────────────────────────
 const Tracker=({stage})=>{
   const steps=[
@@ -338,9 +356,9 @@ const Tracker=({stage})=>{
     return "pending";
   };
   return(
-    <div style={{display:"flex",alignItems:"center",padding:"12px 20px",
+    <div style={{display:"flex",alignItems:"center",padding:"10px 16px",
       background:"#fff",border:`1px solid ${C.line}`,borderRadius:999,
-      boxShadow:"0 2px 6px rgba(0,0,0,0.04)",gap:0}}>
+      boxShadow:"0 2px 6px rgba(0,0,0,0.04)",gap:0,flex:1}}>
       {steps.map((s,i)=>{
         const st=stateOf(s.id);
         const ag=A[s.id];
@@ -1647,7 +1665,7 @@ const DoneScreen=({onRestart})=>{
       <div style={{flex:1,minHeight:0,display:"flex",overflow:"hidden"}}>
 
         {/* LEFT: fixes summary + compliance action */}
-        <div style={{width:380,flexShrink:0,borderRight:`1px solid ${C.line}`,
+        <div style={{flex:"0 0 440px",flexShrink:0,borderRight:`1px solid ${C.line}`,
           display:"flex",flexDirection:"column",background:"#fff",overflow:"hidden"}}>
 
           {/* applied */}
@@ -2004,11 +2022,10 @@ function App(){
       <TweaksPanel cascadeOn={cascade} setCascade={setCascade}/>
       {sidebar}
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,overflow:"hidden",position:"relative"}}>
-        {stage!=="idle"&&stage!=="done"&&(
-          <div style={{padding:"14px 36px 0",display:"flex"}}>
-            <Tracker stage={stage}/>
-          </div>
-        )}
+        <div style={{padding:"14px 36px 0",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <Tracker stage={stage}/>
+          <Clock/>
+        </div>
         {stage==="idle"        &&<Overview onTrigger={()=>startAgent("root")}/>}
         {stage==="running:root"&&<AgentRunning agent={A.root}/>}
         {stage==="review:root" &&<ReviewRoot onNext={()=>startAgent("rem")} onCancel={()=>setStage("idle")}/>}
