@@ -93,7 +93,7 @@ const AGENTS = [
 const A = Object.fromEntries(AGENTS.map(a => [a.id, a]));
 
 // ── Entity & regime ───────────────────────────────────────────────────────────
-const ENTITY = { name:"Whale Capital", lei:"6PTKHDJ8HDUF78PFWH30", type:"Electronic Money Institution", regime:"MiFID II / CFTC P45", arm:"DFR Reporting Platform" };
+const ENTITY = { name:"Whale Capital", lei:"WHLCPT00MOCK00000120", type:"Electronic Money Institution", regime:"MiFID II / CFTC P45", arm:"DFR Reporting Platform" };
 
 // ── Root cause data (DFR lineage — Whale Capital) ────────────────────────────────
 const ROOT_CAUSES = [
@@ -1276,7 +1276,7 @@ const PLAN_ITEMS=[
         what:"Query GLEIF registry for current LEIs of 3 affected counterparties. Cross-check against existing dict for stale or merged entries.",
         input:"broker_code_lei_ref_dict (current state)",
         output:"3 validated LEI mappings ready for insertion",
-        detail:"Alderton Capital International → ALDCAP001234ABC11\nMeridian Securities & Co → MERSEC001234ABC33\nMeridian Securities & Co → MERSEC001234ABC33" },
+        detail:"Alderton Capital International → ALDCPT00MOCK00000111\nCastleford Bank Plc       → CSTLBK00MOCK00000222\nMeridian Securities & Co  → MERIDS00MOCK00000333" },
       { type:"auto",   num:2, title:"Update reference dictionary",
         what:"Insert 3 new LEI entries into broker_code_lei_ref_dict. Tag each with onboard date, source (GLEIF), and validation timestamp.",
         input:"3 validated LEI mappings",
@@ -1364,7 +1364,7 @@ const SUGGESTIONS=[
 
 const AGENT_REPLIES={
   "Why is RC3 flagged for review?":"RC3 applies a precision change to 4,812 notional amounts. In simulation, 312 of those records produce values that differ from counterparty submissions by more than the standard 0.01% valuation tolerance. The corrected values are more accurate — but the difference will trigger reconciliation breaks with VBK AG, Castleford Bank Plc, and Rheinfeld Bank AG until they resubmit their side. I've flagged it so Compliance can decide whether to notify them proactively before filing.",
-  "Show me the E&O form for RC2":"E&O reference REF-2026-RC2 has been pre-populated:\n• Reporting entity: Whale Capital (6PTKHDJ8HDUF78PFWH30)\n• Field in error: 1_17_counterparty_2_financial_entity_indicator\n• Root cause: intragroup_flag not consulted in classification derivation rule — confirmed absent from rule spec\n• Records affected: 184 (Hartwell Lynch International + Pemberton Chase Bank N.A.)\n• Corrective action: derivation rule updated · Records corrected and back-reported\n• Estimated resubmission: today by 17:00\n\nHartwell Lynch International and Pemberton Chase Bank N.A. were notified at 09:14 via secure message.",
+  "Show me the E&O form for RC2":"E&O reference REF-2026-RC2 has been pre-populated:\n• Reporting entity: Whale Capital (WHLCPT00MOCK00000120)\n• Field in error: 1_17_counterparty_2_financial_entity_indicator\n• Root cause: intragroup_flag not consulted in classification derivation rule — confirmed absent from rule spec\n• Records affected: 184 (Hartwell Lynch International + Pemberton Chase Bank N.A.)\n• Corrective action: derivation rule updated · Records corrected and back-reported\n• Estimated resubmission: today by 17:00\n\nHartwell Lynch International and Pemberton Chase Bank N.A. were notified at 09:14 via secure message.",
   "Exclude Castleford Bank from RC1 scope":"Done. Castleford Bank Plc has been removed from the RC1 fix scope. Records affected drops from 415 to 383. The remaining 32 Castleford Bank records will remain in open issues for manual review. I've updated the plan — do you want me to note the reason for the exclusion in the control evidence?",
   "What happens if I don't file E&O for RC2?":"Under MiFID II RTS22 and CFTC P45 Article 9, a financial entity indicator mismatch on 184 records over a 7-day window is reportable. Not filing would leave Whale Capital exposed to a supervisory query from the FCA or CFTC if the reconciliation break is flagged during their review cycle. The form is pre-populated and counterparties already informed — filing takes one click.",
   "Adjust RC3 tolerance to 0.5%":"Tolerance for RC3 updated to 0.5% of notional. Re-running threshold check… 312 records previously at risk reduces to 41 records above tolerance. The E&O draft has been updated accordingly. Note: 41 records may still require counterparty notification for VBK AG and Rheinfeld Bank AG.",
@@ -2529,7 +2529,7 @@ const DoneScreen=({onRestart})=>{
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <EoField label="1.0 Date" value="13 May 2026" agent/>
                     <EoField label="1.1 Executing entity" value="Whale Capital" agent/>
-                    <EoField label="1.2 LEI" value="6PTKHDJ8HDUF78PFWH30" agent/>
+                    <EoField label="1.2 LEI" value="WHLCPT00MOCK00000120" agent/>
                     <EoField label="1.3 Type of firm" value="Electronic Money Institution / PSP" agent/>
                     <EoField label="1.4 Submitting ARM" value="DFR Reporting Platform" agent/>
                     <EoField label="1.5 Contact name &amp; title" required hint="Enter contact name and job title"/>
