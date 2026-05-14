@@ -1283,62 +1283,261 @@ const FixDrawer=({fix,rcData})=>{
 // ── RC lookup map ─────────────────────────────────────────────────────────────
 const RC_MAP={"FX-RC1":ROOT_CAUSES[0],"FX-RC2":ROOT_CAUSES[1],"FX-RC3":ROOT_CAUSES[2],"FX-RC4":CASCADE_RC};
 
-// ── Remediation Plan screen (new step between running:rem and simulation) ─────
+// ── Remediation Plan screen ───────────────────────────────────────────────────
 const PLAN_ITEMS=[
-  { id:"P1", rcId:"RC1", severity:"High", regime:"EMIR Refit", assetClass:"FX Forwards",
-    title:"Update broker_code_lei_ref_dict — 3 missing counterparties",
-    records:415, exposure:"£312M", confidence:89,
-    fix:"Add LEI mappings for Goldman Sachs International, Merrill Lynch International and Barclays Plc to broker_code_lei_ref_dict. Re-derive field 1_9_counterparty_2 for all 415 affected CURR records.",
-    eo:{required:false, status:"Not required", note:"Confidence above threshold — no E&O filing needed."},
-    fields:["1_9_counterparty_2","1_10_country_cp_2"],
-    priority:1 },
-  { id:"P2", rcId:"RC2", severity:"High", regime:"EMIR Refit", assetClass:"FX Forwards",
-    title:"Add intragroup flag derivation rule for field 1_11",
-    records:184, exposure:"$87M", confidence:78,
-    fix:"Add derivation rule: where intragroup_flag = TRUE in Artemis_Open_FX, set 1_11_nature_counterparty_2 = 'CDTI'. Apply retroactively to 184 Merrill Lynch International records.",
-    eo:{required:true, status:"Pre-populated · Client notified", note:"E&O filed to FCA. Merrill Lynch International notified at 09:14 today. Tolerance: ≤5% of notional exposure."},
-    fields:["1_11_nature_counterparty_2"],
-    priority:2 },
-  { id:"P3", rcId:"RC3", severity:"Medium", regime:"EMIR Refit", assetClass:"Interest Rate Swaps",
-    title:"Apply 6dp precision conversion to NT netnotional → 2_55",
-    records:4812, exposure:"$2.1B", confidence:74,
-    fix:"Add formatting step in NT → 2_55 pipeline: expand netnotional from 2dp to 6dp before mapping to 2_55_notional_amount_leg_1. Applies to 4,812 IRS records. Leg 2 should be assessed separately.",
-    eo:{required:true, status:"Pre-populated · Review required", note:"E&O drafted. Valuation tolerance of 312 records may breach counterparty threshold — review before filing."},
-    fields:["2_55_notional_amount_leg_1","2_64_notional_amount_leg_2"],
-    priority:3 },
+  { id:"P1", rcId:"RC1", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
+    priority:1, records:415, exposure:"£312M", confidence:89, eta:"~1h",
+    rootCause:"LEI reference table not refreshed after 3 counterparties were onboarded in January — lookup failing at final table step for Alderton Capital International, Castleford Bank Plc, and Meridian Securities & Co.",
+    steps:[
+      {icon:"🔍", label:"Diagnose", desc:"Confirm 3 missing entries in broker_code_lei_ref_dict · Verify current LEI against GLEIF registry"},
+      {icon:"🔧", label:"Fix",      desc:"Add LEI mappings: Alderton Capital (ALDCAP001234ABC11), Castleford Bank (CASTLF001234ABC22), Meridian Securities (MERSEC001234ABC33)"},
+      {icon:"↺",  label:"Re-derive",desc:"Re-run Counterparty 2 ID derivation for all 415 CURR records — field 1_14_counterparty_2"},
+      {icon:"📤", label:"Submit",   desc:"Back-report 415 corrected records to TRACC · Confirm 1_15_identifier_source for 89 impacted records"},
+    ],
+    eo:{required:false, status:"Not required", colour:"#166534", bg:"#F0FDF4", border:"#BBF7D0",
+      note:"Confidence 89% — above mandatory E&O threshold. No filing required. Control evidence auto-generated."},
+    counterparties:["Alderton Capital International","Castleford Bank Plc","Meridian Securities & Co"],
+    fields:["1_14_counterparty_2","1_15_identifier_source"],
+    cascade:"Low — collateral pipeline uses separate lookup, unaffected" },
+
+  { id:"P2", rcId:"RC2", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
+    priority:2, records:184, exposure:"$87M", confidence:78, eta:"~2h",
+    rootCause:"Derivation rule for field 1_17_financial_entity_indicator does not consult the intragroup_flag in the Artemis_Open_FX feed — 184 trades classified incorrectly as non-financial.",
+    steps:[
+      {icon:"🔍", label:"Diagnose", desc:"Confirm intragroup_flag = TRUE is present on all 184 source rows in Artemis_Open_FX · Cross-reference classification rule spec"},
+      {icon:"🔧", label:"Fix",      desc:"Add derivation rule: if intragroup_flag = TRUE → set 1_17_financial_entity_indicator = TRUE · Update rule specification document"},
+      {icon:"↺",  label:"Re-derive",desc:"Retroactively apply corrected rule to 184 records for Hartwell Lynch International and Pemberton Chase Bank N.A."},
+      {icon:"📤", label:"Submit",   desc:"Back-report corrected records · E&O ref REF-2026-RC2 filed to FCA · Counterparties notified at 09:14"},
+    ],
+    eo:{required:true, status:"Pre-populated · Counterparties notified", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O ref REF-2026-RC2 auto-filed to FCA. Hartwell Lynch International and Pemberton Chase Bank N.A. notified at 09:14 via secure message. Tolerance: ≤5% of notional exposure."},
+    counterparties:["Hartwell Lynch International","Pemberton Chase Bank N.A."],
+    fields:["1_17_counterparty_2_financial_entity_indicator"],
+    cascade:"Medium — counterparty reconciliation scores affected until fix applied" },
+
+  { id:"P3", rcId:"RC3", severity:"Medium", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
+    priority:3, records:4812, exposure:"$2.1B", confidence:74, eta:"~4h",
+    rootCause:"DFR formatting pipeline maps netnotional 1-to-1 from source with no precision conversion step. Source field carries 2dp; submission requires 6dp. Onset estimated Q4 2025 — 4,812 records affected.",
+    steps:[
+      {icon:"🔍", label:"Diagnose", desc:"Confirm all 4,812 failures share identical 2dp rounding signature · Check Leg 2 notional (1_32) — same pipeline, likely same defect"},
+      {icon:"🔧", label:"Fix",      desc:"Insert precision conversion step in DFR → TRACC pipeline: expand netnotional from 2dp to 6dp before mapping to 1_31_notional_amt_leg_1"},
+      {icon:"↺",  label:"Re-derive",desc:"Apply to all 4,812 FX Swap/Forward records · Assess 1_32_notional_amt_leg_2 separately — scope TBC"},
+      {icon:"⚠", label:"Review",   desc:"312 records may breach 0.01% valuation tolerance vs counterparty submissions (VBK AG, Castleford Bank Plc, Rheinfeld Bank AG) — Compliance sign-off required"},
+    ],
+    eo:{required:true, status:"Pre-populated · Review required before filing", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O draft auto-prepared. Filing held pending Compliance review — 312 records at valuation tolerance risk. Estimated resubmission: 10 business days from sign-off."},
+    counterparties:["VBK AG","Castleford Bank Plc","Rheinfeld Bank AG","Alderton Capital International"],
+    fields:["1_31_notional_amt_leg_1","1_32_notional_amt_leg_2"],
+    cascade:"Low–medium — valuation tolerance breach possible on 312 records" },
 ];
 
 const INITIAL_CHAT=[
-  { id:"m0", role:"agent", ts:"09:14", text:"I've analysed the 3 root causes affecting 5,411 records and generated a prioritised remediation plan below.\n\nTwo fixes (RC1, RC2) are safe to submit immediately once applied — confidence is above threshold and no E&O filing is needed for RC1. RC2 has been pre-filed with FCA and Merrill Lynch International have been notified.\n\nRC3 carries a valuation tolerance risk on 312 records. I've pre-populated the E&O form but flagged it for your review before filing. Recommend running simulation on all three before approving." },
-  { id:"m1", role:"agent", ts:"09:14", text:"You can ask me to adjust priorities, modify the E&O tolerance thresholds, exclude specific counterparties, or change the scope of any fix. I'll update the plan in real time." },
+  { id:"m0", role:"agent", ts:"09:14", text:"I've analysed 3 root causes affecting 5,411 records and generated a prioritised remediation plan.\n\nRC1 (LEI lookup failure, 415 records) and RC2 (intragroup classification, 184 records) are safe to submit after fixes are applied. E&O has been pre-filed for RC2 and counterparties notified.\n\nRC3 (precision drift, 4,812 records) requires Compliance sign-off before filing — 312 records may breach valuation tolerance. I've drafted the E&O form and flagged it for review.\n\nReview each plan card below, ask me to adjust anything, then approve all three to proceed to simulation." },
+  { id:"m1", role:"agent", ts:"09:14", text:"I can adjust priorities, modify E&O tolerance thresholds, exclude specific counterparties, split the scope of any fix, or explain any step in more detail." },
 ];
 
 const SUGGESTIONS=[
   "Why is RC3 flagged for review?",
   "Show me the E&O form for RC2",
-  "Exclude Barclays from RC1 scope",
+  "Exclude Castleford Bank from RC1 scope",
   "What happens if I don't file E&O for RC2?",
   "Adjust RC3 tolerance to 0.5%",
 ];
 
 const AGENT_REPLIES={
-  "Why is RC3 flagged for review?":"RC3 applies a precision change to 4,812 notional amounts. In simulation, 312 of those records produce values that differ from counterparty submissions by more than the standard 0.01% valuation tolerance. This doesn't mean the fix is wrong — the corrected values are more accurate — but it will trigger reconciliation breaks with UBS, Barclays, and Goldman Sachs until they resubmit their side. I've flagged it so you can decide whether to notify them proactively before filing.",
-  "Show me the E&O form for RC2":"E&O reference REF-2026-RC2 has been pre-populated:\n• Reporting entity: Whale Capital (6PTKHDJ8HDUF78PFWH30)\n• Field in error: 1_11_nature_counterparty_2\n• Root cause: intragroup_flag not propagated in Artemis_Open_FX derivation logic\n• Records affected: 184 (Merrill Lynch International)\n• Corrective action: derivation rule added\n• Estimated resubmission: today by 17:00\n\nMerrill Lynch International were notified at 09:14 via secure message.",
-  "Exclude Barclays from RC1 scope":"Done. Barclays Plc (G5GSEF7VJP5I7OUK5573) has been removed from the RC1 fix scope. Records affected drops from 415 to 383. The remaining 32 Barclays records will stay in open issues for manual review. I've updated the plan — do you want me to note the reason for the exclusion in the control evidence?",
-  "What happens if I don't file E&O for RC2?":"Under EMIR Refit Article 9, a nature mismatch on field 1_11 affecting 184 records over a 7-day window is reportable. Not filing would leave Whale Capital exposed to a potential supervisory query from FCA if the reconciliation break is flagged during their review cycle. I'd recommend filing — the form is already pre-populated and Merrill Lynch have been informed.",
-  "Adjust RC3 tolerance to 0.5%":"Tolerance for RC3 updated to 0.5% of notional. Re-running threshold check… 312 records previously at risk now reduce to 41 records above tolerance. The E&O form has been updated accordingly. This is a tighter threshold and may still require counterparty notification for those 41 records.",
+  "Why is RC3 flagged for review?":"RC3 applies a precision change to 4,812 notional amounts. In simulation, 312 of those records produce values that differ from counterparty submissions by more than the standard 0.01% valuation tolerance. The corrected values are more accurate — but the difference will trigger reconciliation breaks with VBK AG, Castleford Bank Plc, and Rheinfeld Bank AG until they resubmit their side. I've flagged it so Compliance can decide whether to notify them proactively before filing.",
+  "Show me the E&O form for RC2":"E&O reference REF-2026-RC2 has been pre-populated:\n• Reporting entity: Whale Capital (6PTKHDJ8HDUF78PFWH30)\n• Field in error: 1_17_counterparty_2_financial_entity_indicator\n• Root cause: intragroup_flag not consulted in classification derivation rule — confirmed absent from rule spec\n• Records affected: 184 (Hartwell Lynch International + Pemberton Chase Bank N.A.)\n• Corrective action: derivation rule updated · Records corrected and back-reported\n• Estimated resubmission: today by 17:00\n\nHartwell Lynch International and Pemberton Chase Bank N.A. were notified at 09:14 via secure message.",
+  "Exclude Castleford Bank from RC1 scope":"Done. Castleford Bank Plc has been removed from the RC1 fix scope. Records affected drops from 415 to 383. The remaining 32 Castleford Bank records will remain in open issues for manual review. I've updated the plan — do you want me to note the reason for the exclusion in the control evidence?",
+  "What happens if I don't file E&O for RC2?":"Under MiFID II RTS22 and CFTC P45 Article 9, a financial entity indicator mismatch on 184 records over a 7-day window is reportable. Not filing would leave Whale Capital exposed to a supervisory query from the FCA or CFTC if the reconciliation break is flagged during their review cycle. The form is pre-populated and counterparties already informed — filing takes one click.",
+  "Adjust RC3 tolerance to 0.5%":"Tolerance for RC3 updated to 0.5% of notional. Re-running threshold check… 312 records previously at risk reduces to 41 records above tolerance. The E&O draft has been updated accordingly. Note: 41 records may still require counterparty notification for VBK AG and Rheinfeld Bank AG.",
+};
+
+/* ── Individual plan card ── */
+const PlanCard=({p,isApp,onToggleApprove})=>{
+  const [expanded,setExpanded]=useState(false);
+  const sevCol=s=>s==="High"?C.red:s==="Medium"?C.amber:C.green;
+  const sevBg=s=>s==="High"?C.redBg:s==="Medium"?C.amberT:"#e6f6ec";
+  const stepIconBg=icon=>icon==="⚠"?"#FFF7ED":icon==="📤"?"#EEF6FF":"#F3F4F6";
+  const stepIconFg=icon=>icon==="⚠"?C.amber:icon==="📤"?C.blue:C.ink2;
+
+  return(
+    <div style={{margin:"0 0 14px",borderRadius:14,overflow:"hidden",
+      border:`1.5px solid ${isApp?C.green:C.line}`,
+      background:"#fff",boxShadow:isApp?`0 0 0 3px rgba(35,100,67,.1)`:"0 1px 4px rgba(0,0,0,.04)",
+      transition:"border .2s,box-shadow .2s"}}>
+
+      {/* severity gradient band */}
+      <div style={{height:4,background:`linear-gradient(90deg,${sevCol(p.severity)},${sevCol(p.severity)}88)`}}/>
+
+      {/* card header */}
+      <div style={{padding:"14px 16px 0"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:10}}>
+          {/* left: priority + severity + regime */}
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div style={{width:28,height:28,borderRadius:8,
+              background:`linear-gradient(135deg,${sevCol(p.severity)},${sevCol(p.severity)}99)`,
+              color:"#fff",fontWeight:800,fontSize:11,
+              display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              {p.rcId}
+            </div>
+            <span style={{fontSize:11,fontWeight:700,color:sevCol(p.severity),
+              background:sevBg(p.severity),padding:"2px 8px",borderRadius:99}}>
+              {p.severity}
+            </span>
+            <span style={{fontSize:10,color:C.blue,fontWeight:600,
+              background:C.blueT2,padding:"2px 8px",borderRadius:99}}>
+              #{p.priority} priority
+            </span>
+            <span style={{fontSize:10,color:C.ink3}}>{p.assetClass}</span>
+          </div>
+          {/* right: approved badge */}
+          {isApp&&(
+            <div style={{display:"flex",alignItems:"center",gap:4,
+              background:"#e6f9ee",border:"1px solid #a7f3c4",borderRadius:99,
+              padding:"3px 10px",flexShrink:0,animation:"stampIn .3s cubic-bezier(.2,.6,.2,1) both"}}>
+              <span style={{fontSize:11}}>✓</span>
+              <span style={{fontSize:11,fontWeight:700,color:C.green}}>Approved</span>
+            </div>
+          )}
+        </div>
+
+        {/* title */}
+        <div style={{fontSize:14,fontWeight:700,color:C.ink,lineHeight:1.3,marginBottom:8}}>{p.title||ROOT_CAUSES.find(r=>r.id===p.rcId)?.title}</div>
+
+        {/* metrics row */}
+        <div style={{display:"flex",gap:0,marginBottom:10,
+          background:"#F7F8FA",borderRadius:10,overflow:"hidden",border:`1px solid ${C.line}`}}>
+          {[
+            {label:"Records",value:p.records.toLocaleString(),accent:sevCol(p.severity)},
+            {label:"Notional",value:p.exposure,accent:C.blue},
+            {label:"Confidence",value:p.confidence+"%",accent:p.confidence>85?C.green:p.confidence>75?C.amber:C.red},
+            {label:"Est. time",value:p.eta,accent:C.ink2},
+          ].map((m,i,arr)=>(
+            <div key={i} style={{flex:1,padding:"8px 10px",textAlign:"center",
+              borderRight:i<arr.length-1?`1px solid ${C.line}`:"none"}}>
+              <div style={{fontSize:16,fontWeight:800,color:m.accent,lineHeight:1}}>{m.value}</div>
+              <div style={{fontSize:9,fontWeight:600,color:C.ink3,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* root cause callout */}
+        <div style={{padding:"8px 12px",borderRadius:8,marginBottom:10,
+          background:"#F5F6F8",borderLeft:`3px solid ${sevCol(p.severity)}`,fontSize:11,color:C.ink2,lineHeight:1.55}}>
+          <span style={{fontWeight:700,color:C.ink3,fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:6}}>Root cause</span>
+          {p.rootCause}
+        </div>
+      </div>
+
+      {/* fix steps */}
+      <div style={{padding:"0 16px",marginBottom:10}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+          letterSpacing:"0.07em",marginBottom:8}}>Fix plan — {p.steps.length} steps</div>
+        <div style={{display:"flex",flexDirection:"column",gap:0,
+          border:`1px solid ${C.line}`,borderRadius:10,overflow:"hidden"}}>
+          {p.steps.map((s,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 12px",
+              background:i%2===0?"#fff":"#FAFBFC",
+              borderBottom:i<p.steps.length-1?`1px solid ${C.line}`:"none"}}>
+              <div style={{width:26,height:26,borderRadius:7,flexShrink:0,
+                background:stepIconBg(s.icon),color:stepIconFg(s.icon),
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>
+                {s.icon}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                  <span style={{fontSize:10,fontWeight:700,color:C.ink,textTransform:"uppercase",letterSpacing:"0.05em"}}>
+                    {i+1}. {s.label}
+                  </span>
+                </div>
+                <div style={{fontSize:11,color:C.ink2,lineHeight:1.5}}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* fields + counterparties row */}
+      <div style={{padding:"0 16px",display:"flex",gap:8,marginBottom:10}}>
+        <div style={{flex:1,padding:"8px 10px",borderRadius:8,background:"#F5F6F8",border:`1px solid ${C.line}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Fields</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+            {p.fields.map(f=>(
+              <span key={f} style={{fontSize:9,fontWeight:700,color:C.blue,
+                background:C.blueT2,padding:"2px 6px",borderRadius:4,fontFamily:"ui-monospace,monospace"}}>{f}</span>
+            ))}
+          </div>
+        </div>
+        <div style={{flex:1,padding:"8px 10px",borderRadius:8,background:"#F5F6F8",border:`1px solid ${C.line}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Counterparties</div>
+          <div style={{display:"flex",flexDirection:"column",gap:2}}>
+            {p.counterparties.map(cp=>(
+              <div key={cp} style={{display:"flex",alignItems:"center",gap:5}}>
+                <div style={{width:14,height:14,borderRadius:4,background:C.blueT,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:8,fontWeight:800,color:C.blue,flexShrink:0}}>
+                  {cp[0]}
+                </div>
+                <span style={{fontSize:10,color:C.ink2,lineHeight:1.2}}>{cp}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* E&O section */}
+      <div style={{margin:"0 16px",marginBottom:12,padding:"10px 12px",borderRadius:10,
+        background:p.eo.bg,border:`1px solid ${p.eo.border}`}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:12}}>{p.eo.required?"📋":"✅"}</span>
+            <span style={{fontSize:10,fontWeight:700,color:p.eo.colour,textTransform:"uppercase",letterSpacing:"0.06em"}}>E&O notification</span>
+          </div>
+          <span style={{fontSize:10,fontWeight:700,color:p.eo.colour,
+            background:"rgba(255,255,255,.6)",padding:"2px 8px",borderRadius:99}}>
+            {p.eo.status}
+          </span>
+        </div>
+        <div style={{fontSize:11,color:p.eo.colour,lineHeight:1.55}}>{p.eo.note}</div>
+        {!p.eo.required&&(
+          <div style={{marginTop:5,fontSize:10,color:C.ink3,display:"flex",alignItems:"center",gap:4}}>
+            <span>✦ En:ACT agent · Control evidence auto-generated</span>
+          </div>
+        )}
+      </div>
+
+      {/* cascade */}
+      <div style={{margin:"0 16px",marginBottom:14,padding:"6px 10px",borderRadius:8,
+        background:"#F5F6F8",border:`1px solid ${C.line}`,
+        display:"flex",alignItems:"center",gap:6}}>
+        <span style={{fontSize:10}}>⛓</span>
+        <span style={{fontSize:10,color:C.ink3}}><b style={{color:C.ink2}}>Cascade risk:</b> {p.cascade}</span>
+      </div>
+
+      {/* approve button */}
+      <div style={{padding:"0 16px 16px"}}>
+        <button onClick={onToggleApprove}
+          style={{width:"100%",padding:"11px",borderRadius:10,fontWeight:700,fontSize:13,
+            cursor:"pointer",transition:"all .15s",
+            border:isApp?`1.5px solid ${C.green}`:`1.5px solid ${C.blue}`,
+            background:isApp?"#e6f9ee":C.blue,
+            color:isApp?C.green:"#fff",
+            boxShadow:isApp?"none":`0 2px 12px ${C.blue}33`}}>
+          {isApp?"✓ Approved — click to revise":"Approve this fix →"}
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const RemPlanScreen=({onApprove,onBack,onCancel})=>{
-  const [selected,setSelected]=useState("P1");
   const [msgs,setMsgs]=useState(INITIAL_CHAT);
   const [input,setInput]=useState("");
   const [typing,setTyping]=useState(false);
   const [approved,setApproved]=useState({});
   const chatRef=React.useRef(null);
-
-  const selItem=PLAN_ITEMS.find(p=>p.id===selected);
-  const allApproved=PLAN_ITEMS.every(p=>approved[p.id]);
+  const approvedCount=Object.values(approved).filter(Boolean).length;
+  const allApproved=approvedCount===PLAN_ITEMS.length;
 
   const scrollChat=()=>{ if(chatRef.current) chatRef.current.scrollTop=chatRef.current.scrollHeight; };
   React.useEffect(()=>{ scrollChat(); },[msgs,typing]);
@@ -1350,25 +1549,23 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
     setInput("");
     setTyping(true);
     setTimeout(()=>{
-      const reply=AGENT_REPLIES[text.trim()]||"I've noted that. Let me update the plan and check the downstream impact. Give me a moment to recalculate the affected records and revise the E&O scope if needed.";
+      const reply=AGENT_REPLIES[text.trim()]||"I've noted that. Let me update the plan and check the downstream impact — give me a moment to recalculate the affected records and revise E&O scope if needed.";
       setTyping(false);
       setMsgs(m=>[...m,{id:"a"+Date.now(),role:"agent",ts:new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),text:reply}]);
     },1200+Math.random()*600);
   };
 
-  const sevCol=s=>s==="High"?C.red:s==="Medium"?C.amber:C.green;
-  const sevBg=s=>s==="High"?C.redBg:s==="Medium"?C.amberT:"#e6f6ec";
-
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+
       {/* ── Header ── */}
-      <div style={{padding:"16px 32px",borderBottom:`1px solid ${C.line}`,
-        display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,
-        background:"#fff"}}>
+      <div style={{padding:"16px 32px",borderBottom:`1px solid ${C.line}`,flexShrink:0,
+        display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff"}}>
         <div>
           <div style={{fontSize:18,fontWeight:700,color:C.ink,lineHeight:1.2}}>Remediation plan</div>
           <div style={{fontSize:12,color:C.ink3,marginTop:3}}>
-            3 root causes · 5,411 records · E&O pre-populated for 2 clusters
+            3 root causes · 5,411 records · 2 E&O notifications pre-populated
+            {approvedCount>0&&<span style={{marginLeft:8,color:C.green,fontWeight:600}}>· {approvedCount}/{PLAN_ITEMS.length} approved</span>}
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1377,260 +1574,141 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
               background:"#fff",color:C.ink2,fontSize:13,fontWeight:500,cursor:"pointer"}}>
             ← Back
           </button>
-          <button onClick={()=>allApproved&&onApprove()}
-            disabled={!allApproved}
+          <button onClick={()=>allApproved&&onApprove()} disabled={!allApproved}
             style={{padding:"9px 22px",borderRadius:8,border:"none",
               background:allApproved?C.blue:"#C8D4E0",color:"#fff",
               fontSize:13,fontWeight:600,cursor:allApproved?"pointer":"not-allowed",
-              boxShadow:allApproved?`0 2px 12px ${C.blue}44`:"none",
-              transition:"all .15s"}}>
+              boxShadow:allApproved?`0 2px 16px ${C.blue}55`:"none",
+              transition:"all .2s"}}>
             Run simulation →
           </button>
         </div>
       </div>
 
-      {/* ── Body: left list + right detail+chat ── */}
+      {/* ── Body ── */}
       <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
 
-        {/* LEFT — plan list (440px) */}
-        <div style={{flex:"0 0 440px",minWidth:0,overflowY:"auto",
-          borderRight:`1px solid ${C.line}`,background:"#FAFBFC"}}>
+        {/* LEFT — detailed plan cards */}
+        <div style={{flex:"0 0 520px",minWidth:0,overflowY:"auto",
+          borderRight:`1px solid ${C.line}`,background:"#F7F8FA",padding:"16px"}}>
 
-          {/* summary strip */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,padding:"16px 16px 12px"}}>
+          {/* summary KPI strip */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
             {[
-              {label:"Root causes",value:"3",sub:"identified"},
-              {label:"Total records",value:"5,411",sub:"to remediate"},
-              {label:"E&O filings",value:"2",sub:"pre-populated"},
-              {label:"Safe to submit",value:"2 / 3",sub:"after approval"},
+              {label:"Root causes",value:"3",col:C.ink},
+              {label:"Records",value:"5,411",col:C.red},
+              {label:"E&O filings",value:"2",col:C.amber},
+              {label:"Approved",value:`${approvedCount}/3`,col:allApproved?C.green:C.blue},
             ].map((t,i)=>(
               <div key={i} style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:10,
-                padding:"10px 12px",display:"flex",flexDirection:"column",gap:2}}>
-                <div style={{fontSize:11,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>{t.label}</div>
-                <div style={{fontSize:20,fontWeight:700,color:C.ink,lineHeight:1}}>{t.value}</div>
-                <div style={{fontSize:10,color:C.ink3}}>{t.sub}</div>
+                padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:18,fontWeight:800,color:t.col,lineHeight:1}}>{t.value}</div>
+                <div style={{fontSize:9,fontWeight:600,color:C.ink3,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{t.label}</div>
               </div>
             ))}
           </div>
 
-          <div style={{padding:"0 16px 6px",fontSize:10,fontWeight:700,color:C.ink3,
-            textTransform:"uppercase",letterSpacing:"0.07em"}}>Remediation plan — prioritised</div>
-
-          {/* plan cards */}
-          {PLAN_ITEMS.map(p=>{
-            const isSel=selected===p.id;
-            const isApp=approved[p.id];
-            return(
-              <div key={p.id} onClick={()=>setSelected(p.id)}
-                style={{margin:"0 12px 10px",borderRadius:12,overflow:"hidden",cursor:"pointer",
-                  border:`1.5px solid ${isSel?C.blue:C.line}`,
-                  boxShadow:isSel?`0 0 0 3px ${C.blue}22`:"none",
-                  background:"#fff",transition:"border .15s,box-shadow .15s",position:"relative"}}>
-                {/* severity strip */}
-                <div style={{height:3,background:sevCol(p.severity)}}/>
-                <div style={{padding:"12px 14px 10px"}}>
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7}}>
-                      <div style={{width:22,height:22,borderRadius:6,background:sevBg(p.severity),
-                        color:sevCol(p.severity),fontWeight:700,fontSize:10,
-                        display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        {p.rcId}
-                      </div>
-                      <span style={{fontSize:11,fontWeight:700,color:sevCol(p.severity),
-                        background:sevBg(p.severity),padding:"2px 7px",borderRadius:4}}>
-                        {p.severity}
-                      </span>
-                      <span style={{fontSize:10,color:C.ink3}}>{p.assetClass}</span>
-                    </div>
-                    {isApp&&<span style={{fontSize:10,fontWeight:700,color:C.green,
-                      background:"#e6f9ee",padding:"2px 8px",borderRadius:99,flexShrink:0}}>✓ Approved</span>}
-                  </div>
-                  <div style={{fontSize:13,fontWeight:600,color:C.ink,lineHeight:1.35,marginBottom:6}}>{p.title}</div>
-                  <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:8}}>
-                    <span style={{fontSize:12,fontWeight:700,color:C.ink}}>{p.records.toLocaleString()}</span>
-                    <span style={{fontSize:10,color:C.ink3}}>records</span>
-                    <span style={{fontSize:12,fontWeight:600,color:C.ink2}}>{p.exposure}</span>
-                    <span style={{fontSize:10,color:C.ink3}}>notional</span>
-                    <span style={{fontSize:10,color:C.ink3}}>Conf. {p.confidence}%</span>
-                  </div>
-                  {/* E&O badge */}
-                  <div style={{display:"flex",alignItems:"center",gap:6,
-                    padding:"5px 9px",borderRadius:6,
-                    background:p.eo.required?"#FFF7ED":"#F0FDF4",
-                    border:`1px solid ${p.eo.required?"#FDE68A":"#BBF7D0"}`}}>
-                    <span style={{fontSize:10}}>{p.eo.required?"📋":"✅"}</span>
-                    <span style={{fontSize:10,fontWeight:600,color:p.eo.required?"#92400E":"#166534"}}>
-                      E&O: {p.eo.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div style={{height:20}}/>
+          {PLAN_ITEMS.map(p=>(
+            <PlanCard key={p.id} p={p} isApp={!!approved[p.id]}
+              onToggleApprove={()=>setApproved(a=>({...a,[p.id]:!a[p.id]}))}/>
+          ))}
+          <div style={{height:8}}/>
         </div>
 
-        {/* RIGHT — detail + chat */}
+        {/* RIGHT — AI chat */}
         <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
 
-          {/* top: fix detail card */}
-          {selItem&&(
-            <div style={{flexShrink:0,padding:"18px 24px 14px",
-              borderBottom:`1px solid ${C.line}`,background:"#fff"}}>
-              {/* header row */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:36,height:36,borderRadius:10,background:sevBg(selItem.severity),
-                    color:sevCol(selItem.severity),fontWeight:800,fontSize:13,
-                    display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {selItem.rcId}
-                  </div>
-                  <div>
-                    <div style={{fontSize:15,fontWeight:700,color:C.ink,lineHeight:1.2}}>{selItem.title}</div>
-                    <div style={{fontSize:11,color:C.ink3,marginTop:2}}>
-                      {selItem.assetClass} · {selItem.records.toLocaleString()} records · {selItem.exposure} notional
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={()=>setApproved(a=>({...a,[selItem.id]:!a[selItem.id]}))}
-                  style={{padding:"8px 18px",borderRadius:8,fontWeight:600,fontSize:13,cursor:"pointer",
-                    border:approved[selItem.id]?`1.5px solid ${C.green}`:`1.5px solid ${C.blue}`,
-                    background:approved[selItem.id]?"#e6f9ee":"#fff",
-                    color:approved[selItem.id]?C.green:C.blue,
-                    transition:"all .15s"}}>
-                  {approved[selItem.id]?"✓ Approved":"Approve fix →"}
-                </button>
-              </div>
-
-              {/* fix description */}
-              <div style={{padding:"10px 14px",borderRadius:8,fontSize:12,lineHeight:1.6,
-                background:C.blueT2,borderLeft:`3px solid ${C.blue}`,color:C.ink,marginBottom:10}}>
-                {selItem.fix}
-              </div>
-
-              {/* fields + E&O row */}
-              <div style={{display:"flex",gap:10}}>
-                <div style={{flex:1,padding:"8px 12px",borderRadius:8,
-                  background:"#F5F6F8",border:`1px solid ${C.line}`}}>
-                  <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-                    letterSpacing:"0.07em",marginBottom:5}}>Fields affected</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                    {selItem.fields.map(f=>(
-                      <span key={f} style={{fontSize:10,fontWeight:600,color:C.blue,
-                        background:C.blueT2,padding:"2px 8px",borderRadius:4}}>{f}</span>
-                    ))}
-                  </div>
-                </div>
-                <div style={{flex:1,padding:"8px 12px",borderRadius:8,
-                  background:selItem.eo.required?"#FFF7ED":"#F0FDF4",
-                  border:`1px solid ${selItem.eo.required?"#FDE68A":"#BBF7D0"}`}}>
-                  <div style={{fontSize:10,fontWeight:700,
-                    color:selItem.eo.required?"#92400E":"#166534",
-                    textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>E&O status</div>
-                  <div style={{fontSize:11,fontWeight:600,
-                    color:selItem.eo.required?"#B45309":"#166534"}}>{selItem.eo.status}</div>
-                  <div style={{fontSize:10,color:selItem.eo.required?"#92400E":"#166534",marginTop:3,lineHeight:1.4}}>
-                    {selItem.eo.note}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* chat header */}
-          <div style={{flexShrink:0,padding:"10px 24px 8px",borderBottom:`1px solid ${C.line}`,
-            background:"#FAFBFC",display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:24,height:24,borderRadius:8,
+          <div style={{flexShrink:0,padding:"12px 24px 10px",borderBottom:`1px solid ${C.line}`,
+            background:"#fff",display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:30,height:30,borderRadius:10,flexShrink:0,
               background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
               display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <AIStar size={11} colour="#fff"/>
+              <AIStar size={13} colour="#fff"/>
             </div>
-            <span style={{fontSize:12,fontWeight:700,color:C.ink}}>En:ACT agent</span>
-            <span style={{fontSize:10,color:C.ink3}}>— ask questions or request changes to the plan</span>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.ink}}>En:ACT agent</div>
+              <div style={{fontSize:10,color:C.ink3}}>Ask questions or request changes to the plan</div>
+            </div>
           </div>
 
-          {/* chat messages */}
+          {/* messages */}
           <div ref={chatRef}
-            style={{flex:1,overflowY:"auto",padding:"14px 24px",display:"flex",flexDirection:"column",gap:12}}>
+            style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,background:"#FAFBFC"}}>
             {msgs.map(m=>(
-              <div key={m.id}
-                style={{display:"flex",alignItems:"flex-start",gap:10,
-                  flexDirection:m.role==="user"?"row-reverse":"row"}}>
+              <div key={m.id} style={{display:"flex",alignItems:"flex-start",gap:10,
+                flexDirection:m.role==="user"?"row-reverse":"row"}}>
                 {m.role==="agent"&&(
-                  <div style={{width:28,height:28,borderRadius:9,flexShrink:0,marginTop:2,
+                  <div style={{width:30,height:30,borderRadius:10,flexShrink:0,marginTop:1,
                     background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
                     display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <AIStar size={12} colour="#fff"/>
                   </div>
                 )}
-                <div style={{maxWidth:"76%",padding:"10px 14px",borderRadius:12,fontSize:12,
-                  lineHeight:1.6,whiteSpace:"pre-wrap",
+                <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:14,fontSize:12,
+                  lineHeight:1.65,whiteSpace:"pre-wrap",
                   background:m.role==="user"?C.blue:"#fff",
                   color:m.role==="user"?"#fff":C.ink,
                   border:m.role==="user"?"none":`1px solid ${C.line}`,
-                  borderTopLeftRadius:m.role==="agent"?4:12,
-                  borderTopRightRadius:m.role==="user"?4:12,
-                  boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+                  borderTopLeftRadius:m.role==="agent"?4:14,
+                  borderTopRightRadius:m.role==="user"?4:14,
+                  boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
                   {m.text}
-                  <div style={{fontSize:9,marginTop:5,
-                    color:m.role==="user"?"rgba(255,255,255,.55)":C.ink3}}>{m.ts}</div>
+                  <div style={{fontSize:9,marginTop:5,color:m.role==="user"?"rgba(255,255,255,.5)":C.ink3}}>{m.ts}</div>
                 </div>
               </div>
             ))}
             {typing&&(
               <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-                <div style={{width:28,height:28,borderRadius:9,flexShrink:0,
+                <div style={{width:30,height:30,borderRadius:10,flexShrink:0,
                   background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
                   display:"flex",alignItems:"center",justifyContent:"center"}}>
                   <AIStar size={12} colour="#fff" spin/>
                 </div>
-                <div style={{padding:"10px 14px",borderRadius:12,fontSize:12,
-                  background:"#fff",border:`1px solid ${C.line}`,color:C.ink3,
-                  borderTopLeftRadius:4,display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{animation:"aiPulse 1.2s ease infinite",display:"inline-block"}}>●</span>
-                  <span style={{animation:"aiPulse 1.2s ease .2s infinite",display:"inline-block"}}>●</span>
-                  <span style={{animation:"aiPulse 1.2s ease .4s infinite",display:"inline-block"}}>●</span>
+                <div style={{padding:"12px 16px",borderRadius:14,borderTopLeftRadius:4,
+                  background:"#fff",border:`1px solid ${C.line}`,
+                  display:"flex",alignItems:"center",gap:5}}>
+                  {[0,.2,.4].map(d=>(
+                    <span key={d} style={{width:6,height:6,borderRadius:99,background:C.blue,display:"block",
+                      animation:`aiPulse 1.2s ease ${d}s infinite`}}/>
+                  ))}
                 </div>
               </div>
             )}
           </div>
 
           {/* suggestion chips */}
-          <div style={{flexShrink:0,padding:"8px 24px 6px",borderTop:`1px solid ${C.line}`,
-            background:"#FAFBFC",display:"flex",gap:6,flexWrap:"wrap"}}>
+          <div style={{flexShrink:0,padding:"8px 20px 6px",borderTop:`1px solid ${C.line}`,
+            background:"#fff",display:"flex",gap:5,flexWrap:"wrap"}}>
             {SUGGESTIONS.map(s=>(
               <button key={s} onClick={()=>sendMsg(s)}
                 style={{padding:"4px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",
-                  background:"#fff",border:`1px solid ${C.line}`,color:C.blue,
+                  background:"#F5F6F8",border:`1px solid ${C.line}`,color:C.blue,
                   transition:"all .12s"}}
                 onMouseEnter={e=>{e.currentTarget.style.background=C.blueT2;e.currentTarget.style.borderColor=C.blue;}}
-                onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.borderColor=C.line;}}>
+                onMouseLeave={e=>{e.currentTarget.style.background="#F5F6F8";e.currentTarget.style.borderColor=C.line;}}>
                 {s}
               </button>
             ))}
           </div>
 
           {/* input */}
-          <div style={{flexShrink:0,padding:"10px 24px 16px",
-            background:"#fff",borderTop:`1px solid ${C.line}`}}>
+          <div style={{flexShrink:0,padding:"10px 20px 16px",background:"#fff",borderTop:`1px solid ${C.line}`}}>
             <div style={{display:"flex",gap:8,alignItems:"center",
-              border:`1.5px solid ${C.line}`,borderRadius:12,padding:"8px 12px",
-              background:"#FAFBFC",transition:"border .15s"}}
+              border:`1.5px solid ${C.line}`,borderRadius:12,padding:"8px 10px 8px 14px",
+              background:"#FAFBFC",transition:"border-color .15s"}}
               onFocusCapture={e=>e.currentTarget.style.borderColor=C.blue}
               onBlurCapture={e=>e.currentTarget.style.borderColor=C.line}>
-              <input
-                value={input}
-                onChange={e=>setInput(e.target.value)}
+              <input value={input} onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),sendMsg(input))}
-                placeholder="Ask En:ACT to adjust the plan, explain a finding, or modify E&O scope…"
+                placeholder="Ask En:ACT to adjust priorities, modify E&O thresholds, or explain a finding…"
                 style={{flex:1,border:"none",background:"transparent",outline:"none",
                   fontSize:12,color:C.ink,fontFamily:"inherit"}}/>
               <button onClick={()=>sendMsg(input)} disabled={!input.trim()}
-                style={{width:30,height:30,borderRadius:8,border:"none",cursor:input.trim()?"pointer":"default",
-                  background:input.trim()?C.blue:"#E5E9EE",color:"#fff",
+                style={{width:32,height:32,borderRadius:9,border:"none",
+                  background:input.trim()?C.blue:"#E5E9EE",
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  transition:"all .15s",flexShrink:0}}>
+                  cursor:input.trim()?"pointer":"default",transition:"all .15s",flexShrink:0}}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 7h10M8 3l4 4-4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -1638,12 +1716,12 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
             </div>
             {!allApproved&&(
               <div style={{fontSize:10,color:C.ink3,marginTop:6,textAlign:"center"}}>
-                Approve all {PLAN_ITEMS.length} fixes above to proceed to simulation
+                Approve all 3 fix plans to unlock simulation
               </div>
             )}
           </div>
 
-        </div>{/* /right */}
+        </div>{/* /chat */}
       </div>{/* /body */}
     </div>
   );
