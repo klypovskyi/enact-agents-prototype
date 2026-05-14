@@ -58,24 +58,6 @@ button{font-family:inherit;}
   background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s;font-style:normal;display:block;}
 .twk-toggle[data-on="1"] i{transform:translateX(14px);}
 
-/* ── PIN gate ── */
-.pin-overlay{position:fixed;inset:0;z-index:99999;background:linear-gradient(145deg,#0d1b2a 0%,#1a2d45 60%,#0d1b2a 100%);display:flex;align-items:center;justify-content:center;}
-.pin-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:48px 40px 40px;width:340px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.5);backdrop-filter:blur(20px);}
-.pin-logo{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#44709D,#5ea0df);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 8px 24px rgba(68,112,173,.4);}
-.pin-title{font-size:20px;font-weight:700;color:#fff;margin:0 0 4px;}
-.pin-sub{font-size:13px;color:rgba(255,255,255,.45);margin:0 0 32px;}
-.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:28px;}
-.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.2);transition:all .15s;}
-.pin-dot.filled{background:#44709D;border-color:#5ea0df;box-shadow:0 0 12px rgba(68,112,173,.6);}
-.pin-dot.error{background:#e14a37;border-color:#e14a37;animation:pinShake .35s ease;}
-.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
-.pin-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;border-radius:14px;height:58px;font-size:20px;font-weight:500;cursor:pointer;transition:all .12s;font-family:inherit;}
-.pin-btn:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);}
-.pin-btn:active{transform:scale(.94);background:rgba(68,112,173,.3);}
-.pin-btn.wide{grid-column:span 2;}
-.pin-del{background:transparent;border:none;}
-.pin-err{font-size:12px;color:#e14a37;height:18px;margin-top:4px;}
-@keyframes pinShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
 </style>
 </head>
 <body>
@@ -2724,73 +2706,7 @@ function App(){
   );
 }
 
-/* ── PIN Gate ──────────────────────────────────────────────────────────────── */
-const PIN_CORRECT = "5285475";
-
-function PinGate({children}){
-  const storageKey = "enact_pin_ok";
-  const [unlocked, setUnlocked] = React.useState(()=>sessionStorage.getItem(storageKey)==="1");
-  const [digits, setDigits] = React.useState([]);
-  const [error, setError] = React.useState(false);
-  const [shake, setShake] = React.useState(false);
-
-  if(unlocked) return children;
-
-  const press = d => {
-    if(digits.length >= PIN_CORRECT.length) return;
-    setError(false);
-    const next = [...digits, d];
-    setDigits(next);
-    if(next.length === PIN_CORRECT.length){
-      if(next.join("") === PIN_CORRECT){
-        sessionStorage.setItem(storageKey,"1");
-        setTimeout(()=>setUnlocked(true), 180);
-      } else {
-        setShake(true);
-        setTimeout(()=>{setDigits([]);setShake(false);setError(true);}, 420);
-      }
-    }
-  };
-
-  const del = () => { setDigits(d=>d.slice(0,-1)); setError(false); };
-
-  const keys = [1,2,3,4,5,6,7,8,9];
-
-  return(
-    <div className="pin-overlay">
-      <div className="pin-card">
-        <div className="pin-logo">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M7 14 L14 7 L21 14 L14 21 Z" fill="rgba(255,255,255,.9)"/>
-            <path d="M14 4 L24 14 L14 24" stroke="rgba(255,255,255,.5)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <div className="pin-title">En:ACT Agents</div>
-        <div className="pin-sub">Enter access PIN to continue</div>
-        <div className="pin-dots">
-          {Array.from({length:PIN_CORRECT.length}).map((_,i)=>(
-            <div key={i} className={`pin-dot${digits.length>i?" filled":""}${shake?" error":""}`}/>
-          ))}
-        </div>
-        <div className="pin-grid">
-          {keys.map(n=>(
-            <button key={n} className="pin-btn" onClick={()=>press(String(n))}>{n}</button>
-          ))}
-          <button className="pin-btn wide" onClick={()=>press("0")}>0</button>
-          <button className="pin-btn pin-del" onClick={del}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M14 6L8 10L14 14" stroke="rgba(255,255,255,.7)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M3 10h5" stroke="rgba(255,255,255,.7)" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <div className="pin-err">{error?"Incorrect PIN — try again":""}</div>
-      </div>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<PinGate><App/></PinGate>);
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
