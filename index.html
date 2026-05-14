@@ -1284,51 +1284,87 @@ const FixDrawer=({fix,rcData})=>{
 const RC_MAP={"FX-RC1":ROOT_CAUSES[0],"FX-RC2":ROOT_CAUSES[1],"FX-RC3":ROOT_CAUSES[2],"FX-RC4":CASCADE_RC};
 
 // ── Remediation Plan screen ───────────────────────────────────────────────────
+// Step types: "auto" = En:ACT executes | "human" = human action required | "review" = compliance sign-off
 const PLAN_ITEMS=[
   { id:"P1", rcId:"RC1", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
     priority:1, records:415, exposure:"£312M", confidence:89, eta:"~1h",
-    rootCause:"LEI reference table not refreshed after 3 counterparties were onboarded in January — lookup failing at final table step for Alderton Capital International, Castleford Bank Plc, and Meridian Securities & Co.",
+    rootCause:"broker_code_lei_ref_dict not refreshed since 14 Jan 2026 — 3 counterparties onboarded after last refresh have no LEI entry. Lookup fails at final table step; field 1_14_counterparty_2 written blank or with stale pre-merger ID.",
     steps:[
-      {icon:"🔍", label:"Diagnose", desc:"Confirm 3 missing entries in broker_code_lei_ref_dict · Verify current LEI against GLEIF registry"},
-      {icon:"🔧", label:"Fix",      desc:"Add LEI mappings: Alderton Capital (ALDCAP001234ABC11), Castleford Bank (CASTLF001234ABC22), Meridian Securities (MERSEC001234ABC33)"},
-      {icon:"↺",  label:"Re-derive",desc:"Re-run Counterparty 2 ID derivation for all 415 CURR records — field 1_14_counterparty_2"},
-      {icon:"📤", label:"Submit",   desc:"Back-report 415 corrected records to TRACC · Confirm 1_15_identifier_source for 89 impacted records"},
+      { type:"auto",   num:1, title:"Validate missing entries",
+        what:"Query GLEIF registry for current LEIs of 3 affected counterparties. Cross-check against existing dict for stale or merged entries.",
+        input:"broker_code_lei_ref_dict (current state)",
+        output:"3 validated LEI mappings ready for insertion",
+        detail:"Alderton Capital International → ALDCAP001234ABC11\nMeridian Securities & Co → MERSEC001234ABC33\nVantaris Clearing Ltd → VANTCL001234ABC44" },
+      { type:"auto",   num:2, title:"Update reference dictionary",
+        what:"Insert 3 new LEI entries into broker_code_lei_ref_dict. Tag each with onboard date, source (GLEIF), and validation timestamp.",
+        input:"3 validated LEI mappings",
+        output:"broker_code_lei_ref_dict — 3 new entries committed",
+        detail:"Dict version: v1.4 → v1.5 · Changes logged to audit trail · Rollback snapshot created" },
+      { type:"auto",   num:3, title:"Re-derive field 1_14_counterparty_2",
+        what:"Re-run counterparty ID derivation pipeline for all 415 affected CURR records using the updated dict. Re-evaluate 1_15_identifier_source for 89 records where source code was also affected.",
+        input:"415 CURR trade records · updated broker_code_lei_ref_dict v1.5",
+        output:"415 records with corrected 1_14_counterparty_2 values · 89 records with corrected 1_15 source codes" },
+      { type:"human",  num:4, title:"Review & confirm before back-report",
+        what:"Spot-check a sample of corrected records. Confirm 1_15_identifier_source values are correct for the 89 re-evaluated records. Approve batch for submission to TRACC.",
+        input:"Corrected batch of 415 records",
+        output:"Compliance sign-off → TRACC submission" },
     ],
     eo:{required:false, status:"Not required", colour:"#166534", bg:"#F0FDF4", border:"#BBF7D0",
-      note:"Confidence 89% — above mandatory E&O threshold. No filing required. Control evidence auto-generated."},
-    counterparties:["Alderton Capital International","Castleford Bank Plc","Meridian Securities & Co"],
+      note:"Confidence 89% — above mandatory E&O threshold. No filing required. Control evidence auto-generated and attached to audit log."},
     fields:["1_14_counterparty_2","1_15_identifier_source"],
-    cascade:"Low — collateral pipeline uses separate lookup, unaffected" },
+    cascade:"Low — collateral pipeline uses a separate lookup, unaffected" },
 
   { id:"P2", rcId:"RC2", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
     priority:2, records:184, exposure:"$87M", confidence:78, eta:"~2h",
-    rootCause:"Derivation rule for field 1_17_financial_entity_indicator does not consult the intragroup_flag in the Artemis_Open_FX feed — 184 trades classified incorrectly as non-financial.",
+    rootCause:"Derivation logic for 1_17_financial_entity_indicator does not reference intragroup_flag in Artemis_Open_FX. All 184 affected trades carry intragroup_flag = TRUE in source but indicator is set blank or FALSE — confirmed absent from derivation rule spec.",
     steps:[
-      {icon:"🔍", label:"Diagnose", desc:"Confirm intragroup_flag = TRUE is present on all 184 source rows in Artemis_Open_FX · Cross-reference classification rule spec"},
-      {icon:"🔧", label:"Fix",      desc:"Add derivation rule: if intragroup_flag = TRUE → set 1_17_financial_entity_indicator = TRUE · Update rule specification document"},
-      {icon:"↺",  label:"Re-derive",desc:"Retroactively apply corrected rule to 184 records for Hartwell Lynch International and Pemberton Chase Bank N.A."},
-      {icon:"📤", label:"Submit",   desc:"Back-report corrected records · E&O ref REF-2026-RC2 filed to FCA · Counterparties notified at 09:14"},
+      { type:"auto",   num:1, title:"Confirm rule gap in derivation spec",
+        what:"Parse derivation rule spec for field 1_17. Confirm intragroup_flag is not referenced in any conditional branch. Cross-check against source data to validate all 184 affected rows.",
+        input:"Derivation rule spec · Artemis_Open_FX feed (184 records)",
+        output:"Confirmed gap — intragroup_flag branch missing from rule · Evidence logged" },
+      { type:"auto",   num:2, title:"Insert intragroup derivation rule",
+        what:"Add conditional: IF Artemis_Open_FX.intragroup_flag = TRUE THEN 1_17_financial_entity_indicator = TRUE. Insert before existing NULL-check branch. Update rule spec document version.",
+        input:"Current rule spec v2.1",
+        output:"Updated rule spec v2.2 · Rule deployed to derivation engine" },
+      { type:"auto",   num:3, title:"Retroactively apply corrected rule",
+        what:"Re-run derivation for 184 records across Hartwell Lynch International (141 records) and Pemberton Chase Bank N.A. (43 records). Validate output — all should yield indicator = TRUE.",
+        input:"184 affected records · rule spec v2.2",
+        output:"184 records corrected · field 1_17 = TRUE for all · ready for submission" },
+      { type:"auto",   num:4, title:"File E&O and notify counterparties",
+        what:"Submit pre-populated E&O notification REF-2026-RC2 to FCA. Send secure notification to Hartwell Lynch International and Pemberton Chase Bank N.A. Back-report 184 corrected records to TRACC.",
+        input:"E&O form REF-2026-RC2 (pre-filled) · 184 corrected records",
+        output:"E&O filed · Counterparties notified · 184 records back-reported to TRACC" },
     ],
-    eo:{required:true, status:"Pre-populated · Counterparties notified", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+    eo:{required:true, status:"Pre-populated · Filed to FCA", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
       note:"E&O ref REF-2026-RC2 auto-filed to FCA. Hartwell Lynch International and Pemberton Chase Bank N.A. notified at 09:14 via secure message. Tolerance: ≤5% of notional exposure."},
-    counterparties:["Hartwell Lynch International","Pemberton Chase Bank N.A."],
     fields:["1_17_counterparty_2_financial_entity_indicator"],
-    cascade:"Medium — counterparty reconciliation scores affected until fix applied" },
+    cascade:"Medium — counterparty reconciliation scores affected until fix applied and back-reported" },
 
   { id:"P3", rcId:"RC3", severity:"Medium", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
     priority:3, records:4812, exposure:"$2.1B", confidence:74, eta:"~4h",
-    rootCause:"DFR formatting pipeline maps netnotional 1-to-1 from source with no precision conversion step. Source field carries 2dp; submission requires 6dp. Onset estimated Q4 2025 — 4,812 records affected.",
+    rootCause:"DFR → TRACC pipeline maps netnotional field 1-to-1 with no precision conversion step. Source carries 2dp; TRACC requires 6dp. All 4,812 failures share identical rounding pattern — onset estimated Q4 2025. Leg 2 notional (1_32) uses the same pipeline and is likely affected.",
     steps:[
-      {icon:"🔍", label:"Diagnose", desc:"Confirm all 4,812 failures share identical 2dp rounding signature · Check Leg 2 notional (1_32) — same pipeline, likely same defect"},
-      {icon:"🔧", label:"Fix",      desc:"Insert precision conversion step in DFR → TRACC pipeline: expand netnotional from 2dp to 6dp before mapping to 1_31_notional_amt_leg_1"},
-      {icon:"↺",  label:"Re-derive",desc:"Apply to all 4,812 FX Swap/Forward records · Assess 1_32_notional_amt_leg_2 separately — scope TBC"},
-      {icon:"⚠", label:"Review",   desc:"312 records may breach 0.01% valuation tolerance vs counterparty submissions (VBK AG, Castleford Bank Plc, Rheinfeld Bank AG) — Compliance sign-off required"},
+      { type:"auto",   num:1, title:"Confirm rounding signature across all records",
+        what:"Scan all 4,812 records for identical 2dp rounding pattern. Confirm single root cause. Run same scan on 1_32_notional_amt_leg_2 to assess Leg 2 scope.",
+        input:"4,812 affected INTR records · pipeline spec",
+        output:"Confirmed: all 4,812 share same 2dp pattern · Leg 2 scope TBC — flagged for separate fix" },
+      { type:"auto",   num:2, title:"Insert precision conversion step in pipeline",
+        what:"Add formatting step in DFR → TRACC pipeline immediately before field mapping: ROUND(netnotional, 6) → 1_31_notional_amt_leg_1. Deploy to staging, validate output against 10 sample records.",
+        input:"DFR → TRACC pipeline config · staging environment",
+        output:"Pipeline config v3.1 with 6dp conversion deployed · Staging validation passed" },
+      { type:"auto",   num:3, title:"Apply to 4,812 records — generate corrected batch",
+        what:"Run corrected pipeline across 4,812 records in isolated batch. Output corrected 1_31 values for review. Flag 312 records where corrected value diverges from counterparty submission by >0.01%.",
+        input:"4,812 INTR records · pipeline config v3.1",
+        output:"4,812 corrected records · 312 flagged for tolerance review · batch held pending sign-off" },
+      { type:"review", num:4, title:"Compliance sign-off — valuation tolerance review",
+        what:"Review 312 records where corrected notional diverges from counterparty submission above 0.01% tolerance. Decide: notify counterparties proactively, adjust tolerance threshold, or proceed and accept reconciliation breaks. Approve batch for TRACC submission.",
+        input:"312 flagged records · counterparty submission data · E&O draft REF-2026-RC3",
+        output:"Sign-off decision → TRACC submission · E&O filed or held per Compliance decision" },
     ],
-    eo:{required:true, status:"Pre-populated · Review required before filing", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
-      note:"E&O draft auto-prepared. Filing held pending Compliance review — 312 records at valuation tolerance risk. Estimated resubmission: 10 business days from sign-off."},
-    counterparties:["VBK AG","Castleford Bank Plc","Rheinfeld Bank AG","Alderton Capital International"],
+    eo:{required:true, status:"Drafted · Awaiting Compliance sign-off", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O draft REF-2026-RC3 prepared. Filing held — 312 records exceed 0.01% valuation tolerance vs counterparty data. Estimated resubmission: 10 business days from Compliance sign-off."},
     fields:["1_31_notional_amt_leg_1","1_32_notional_amt_leg_2"],
-    cascade:"Low–medium — valuation tolerance breach possible on 312 records" },
+    cascade:"Low–medium — valuation tolerance breach possible on 312 records against counterparty submissions" },
 ];
 
 const INITIAL_CHAT=[
@@ -1352,177 +1388,213 @@ const AGENT_REPLIES={
   "Adjust RC3 tolerance to 0.5%":"Tolerance for RC3 updated to 0.5% of notional. Re-running threshold check… 312 records previously at risk reduces to 41 records above tolerance. The E&O draft has been updated accordingly. Note: 41 records may still require counterparty notification for VBK AG and Rheinfeld Bank AG.",
 };
 
-/* ── Individual plan card ── */
+/* ── Step type config ── */
+const STEP_TYPE={
+  auto:   {label:"En:ACT automated", bg:"#EBF2FB", fg:C.blue,   dot:C.blue,   icon:"✦"},
+  human:  {label:"Human action",     bg:"#FFF7ED", fg:"#B45309", dot:"#B45309", icon:"👤"},
+  review: {label:"Compliance sign-off", bg:"#FEF2F2", fg:C.red,  dot:C.red,    icon:"⚠"},
+};
+
+/* ── Individual plan card with vertical stepper ── */
 const PlanCard=({p,isApp,onToggleApprove})=>{
-  const [expanded,setExpanded]=useState(false);
   const sevCol=s=>s==="High"?C.red:s==="Medium"?C.amber:C.green;
   const sevBg=s=>s==="High"?C.redBg:s==="Medium"?C.amberT:"#e6f6ec";
-  const stepIconBg=icon=>icon==="⚠"?"#FFF7ED":icon==="📤"?"#EEF6FF":"#F3F4F6";
-  const stepIconFg=icon=>icon==="⚠"?C.amber:icon==="📤"?C.blue:C.ink2;
+  const rc=ROOT_CAUSES.find(r=>r.id===p.rcId);
 
   return(
-    <div style={{margin:"0 0 14px",borderRadius:14,overflow:"hidden",
-      border:`1.5px solid ${isApp?C.green:C.line}`,
-      background:"#fff",boxShadow:isApp?`0 0 0 3px rgba(35,100,67,.1)`:"0 1px 4px rgba(0,0,0,.04)",
+    <div style={{margin:"0 0 16px",borderRadius:14,overflow:"hidden",
+      border:`1.5px solid ${isApp?"#4ade80":C.line}`,
+      background:"#fff",
+      boxShadow:isApp?`0 0 0 3px rgba(74,222,128,.12),0 2px 12px rgba(0,0,0,.06)`:"0 1px 6px rgba(0,0,0,.05)",
       transition:"border .2s,box-shadow .2s"}}>
 
-      {/* severity gradient band */}
-      <div style={{height:4,background:`linear-gradient(90deg,${sevCol(p.severity)},${sevCol(p.severity)}88)`}}/>
+      {/* severity gradient top band */}
+      <div style={{height:3,background:`linear-gradient(90deg,${sevCol(p.severity)},${sevCol(p.severity)}55)`}}/>
 
-      {/* card header */}
-      <div style={{padding:"14px 16px 0"}}>
-        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:10}}>
-          {/* left: priority + severity + regime */}
-          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <div style={{width:28,height:28,borderRadius:8,
-              background:`linear-gradient(135deg,${sevCol(p.severity)},${sevCol(p.severity)}99)`,
-              color:"#fff",fontWeight:800,fontSize:11,
-              display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+      {/* ── Card header ── */}
+      <div style={{padding:"14px 18px 12px",borderBottom:`1px solid ${C.line}`}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+            <div style={{width:30,height:30,borderRadius:8,flexShrink:0,
+              background:sevBg(p.severity),color:sevCol(p.severity),
+              fontWeight:800,fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {p.rcId}
             </div>
             <span style={{fontSize:11,fontWeight:700,color:sevCol(p.severity),
-              background:sevBg(p.severity),padding:"2px 8px",borderRadius:99}}>
-              {p.severity}
-            </span>
-            <span style={{fontSize:10,color:C.blue,fontWeight:600,
-              background:C.blueT2,padding:"2px 8px",borderRadius:99}}>
-              #{p.priority} priority
-            </span>
-            <span style={{fontSize:10,color:C.ink3}}>{p.assetClass}</span>
+              background:sevBg(p.severity),padding:"2px 8px",borderRadius:99}}>{p.severity}</span>
+            <span style={{fontSize:10,fontWeight:600,color:C.blue,
+              background:C.blueT2,padding:"2px 8px",borderRadius:99}}>Priority {p.priority}</span>
+            <span style={{fontSize:10,color:C.ink3,fontFamily:"ui-monospace,monospace"}}>{p.regime}</span>
           </div>
-          {/* right: approved badge */}
           {isApp&&(
-            <div style={{display:"flex",alignItems:"center",gap:4,
-              background:"#e6f9ee",border:"1px solid #a7f3c4",borderRadius:99,
-              padding:"3px 10px",flexShrink:0,animation:"stampIn .3s cubic-bezier(.2,.6,.2,1) both"}}>
-              <span style={{fontSize:11}}>✓</span>
-              <span style={{fontSize:11,fontWeight:700,color:C.green}}>Approved</span>
+            <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0,
+              background:"#dcfce7",border:"1px solid #86efac",borderRadius:99,padding:"3px 10px",
+              animation:"stampIn .3s cubic-bezier(.2,.6,.2,1) both"}}>
+              <span style={{fontSize:11,color:C.green,fontWeight:700}}>✓ Approved</span>
             </div>
           )}
         </div>
 
         {/* title */}
-        <div style={{fontSize:14,fontWeight:700,color:C.ink,lineHeight:1.3,marginBottom:8}}>{p.title||ROOT_CAUSES.find(r=>r.id===p.rcId)?.title}</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.ink,lineHeight:1.3,marginBottom:10}}>
+          {rc?.title||p.rcId}
+        </div>
 
-        {/* metrics row */}
-        <div style={{display:"flex",gap:0,marginBottom:10,
-          background:"#F7F8FA",borderRadius:10,overflow:"hidden",border:`1px solid ${C.line}`}}>
+        {/* metrics strip */}
+        <div style={{display:"flex",borderRadius:9,overflow:"hidden",border:`1px solid ${C.line}`}}>
           {[
-            {label:"Records",value:p.records.toLocaleString(),accent:sevCol(p.severity)},
-            {label:"Notional",value:p.exposure,accent:C.blue},
-            {label:"Confidence",value:p.confidence+"%",accent:p.confidence>85?C.green:p.confidence>75?C.amber:C.red},
-            {label:"Est. time",value:p.eta,accent:C.ink2},
+            {label:"Records",  value:p.records.toLocaleString(), col:sevCol(p.severity)},
+            {label:"Notional", value:p.exposure,                 col:C.blue},
+            {label:"Confidence",value:p.confidence+"%",          col:p.confidence>=85?C.green:p.confidence>=75?C.amber:C.red},
+            {label:"Est. time",value:p.eta,                      col:C.ink2},
           ].map((m,i,arr)=>(
-            <div key={i} style={{flex:1,padding:"8px 10px",textAlign:"center",
+            <div key={i} style={{flex:1,padding:"7px 8px",textAlign:"center",background:"#F8F9FA",
               borderRight:i<arr.length-1?`1px solid ${C.line}`:"none"}}>
-              <div style={{fontSize:16,fontWeight:800,color:m.accent,lineHeight:1}}>{m.value}</div>
-              <div style={{fontSize:9,fontWeight:600,color:C.ink3,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{m.label}</div>
+              <div style={{fontSize:15,fontWeight:800,color:m.col,lineHeight:1}}>{m.value}</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,marginTop:2,
+                textTransform:"uppercase",letterSpacing:"0.05em"}}>{m.label}</div>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* root cause callout */}
-        <div style={{padding:"8px 12px",borderRadius:8,marginBottom:10,
-          background:"#F5F6F8",borderLeft:`3px solid ${sevCol(p.severity)}`,fontSize:11,color:C.ink2,lineHeight:1.55}}>
-          <span style={{fontWeight:700,color:C.ink3,fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:6}}>Root cause</span>
+      {/* ── Root cause technical brief ── */}
+      <div style={{padding:"10px 18px",borderBottom:`1px solid ${C.line}`,background:"#FAFBFC"}}>
+        <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+          letterSpacing:"0.08em",marginBottom:5}}>Technical root cause</div>
+        <div style={{fontSize:11,color:C.ink,lineHeight:1.6,
+          fontFamily:"ui-monospace,SFMono-Regular,monospace",
+          background:"#F1F3F5",borderRadius:7,padding:"8px 10px",
+          border:`1px solid ${C.line}`}}>
           {p.rootCause}
         </div>
       </div>
 
-      {/* fix steps */}
-      <div style={{padding:"0 16px",marginBottom:10}}>
-        <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",
-          letterSpacing:"0.07em",marginBottom:8}}>Fix plan — {p.steps.length} steps</div>
-        <div style={{display:"flex",flexDirection:"column",gap:0,
-          border:`1px solid ${C.line}`,borderRadius:10,overflow:"hidden"}}>
-          {p.steps.map((s,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 12px",
-              background:i%2===0?"#fff":"#FAFBFC",
-              borderBottom:i<p.steps.length-1?`1px solid ${C.line}`:"none"}}>
-              <div style={{width:26,height:26,borderRadius:7,flexShrink:0,
-                background:stepIconBg(s.icon),color:stepIconFg(s.icon),
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>
-                {s.icon}
+      {/* ── Vertical stepper ── */}
+      <div style={{padding:"14px 18px 10px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+          letterSpacing:"0.08em",marginBottom:12}}>
+          Execution plan · {p.steps.length} steps · {p.steps.filter(s=>s.type==="auto").length} automated
+        </div>
+
+        {p.steps.map((s,i)=>{
+          const t=STEP_TYPE[s.type];
+          const isLast=i===p.steps.length-1;
+          return(
+            <div key={i} style={{display:"flex",gap:0,position:"relative"}}>
+              {/* connector line */}
+              {!isLast&&(
+                <div style={{position:"absolute",left:13,top:28,width:2,
+                  height:"calc(100% - 4px)",
+                  background:`linear-gradient(180deg,${t.dot}44,${STEP_TYPE[p.steps[i+1].type].dot}22)`,
+                  zIndex:0}}/>
+              )}
+
+              {/* step number circle */}
+              <div style={{flexShrink:0,width:28,height:28,borderRadius:999,zIndex:1,
+                background:t.dot,color:"#fff",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:11,fontWeight:800,marginRight:12,marginTop:1,
+                boxShadow:`0 0 0 3px ${t.dot}22`}}>
+                {s.num}
               </div>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                  <span style={{fontSize:10,fontWeight:700,color:C.ink,textTransform:"uppercase",letterSpacing:"0.05em"}}>
-                    {i+1}. {s.label}
+
+              {/* step body */}
+              <div style={{flex:1,paddingBottom:isLast?0:18}}>
+                {/* step header */}
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:C.ink}}>{s.title}</span>
+                  <span style={{fontSize:10,fontWeight:600,color:t.fg,
+                    background:t.bg,padding:"1px 8px",borderRadius:99,
+                    border:`1px solid ${t.dot}33`}}>
+                    {t.icon} {t.label}
                   </span>
                 </div>
-                <div style={{fontSize:11,color:C.ink2,lineHeight:1.5}}>{s.desc}</div>
+
+                {/* what the step does */}
+                <div style={{fontSize:11,color:C.ink2,lineHeight:1.6,marginBottom:8}}>{s.what}</div>
+
+                {/* input / output */}
+                <div style={{display:"flex",gap:6,marginBottom:s.detail?8:0}}>
+                  {[{label:"INPUT",val:s.input,col:"#6B7280"},{label:"OUTPUT",val:s.output,col:C.green}].map((io,j)=>(
+                    <div key={j} style={{flex:1,padding:"6px 9px",borderRadius:7,
+                      background:j===0?"#F8F9FA":"#F0FDF4",
+                      border:`1px solid ${j===0?C.line:"#BBF7D0"}`}}>
+                      <div style={{fontSize:8,fontWeight:700,color:io.col,textTransform:"uppercase",
+                        letterSpacing:"0.08em",marginBottom:3}}>{io.label}</div>
+                      <div style={{fontSize:10,color:C.ink2,lineHeight:1.4,
+                        fontFamily:"ui-monospace,SFMono-Regular,monospace"}}>{io.val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* optional detail block */}
+                {s.detail&&(
+                  <div style={{padding:"6px 10px",borderRadius:7,background:"#F8F9FA",
+                    border:`1px solid ${C.line}`,fontSize:10,color:C.ink2,
+                    fontFamily:"ui-monospace,SFMono-Regular,monospace",
+                    whiteSpace:"pre",lineHeight:1.6}}>
+                    {s.detail}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* fields + counterparties row */}
-      <div style={{padding:"0 16px",display:"flex",gap:8,marginBottom:10}}>
-        <div style={{flex:1,padding:"8px 10px",borderRadius:8,background:"#F5F6F8",border:`1px solid ${C.line}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Fields</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+      {/* ── Fields affected ── */}
+      <div style={{padding:"0 18px 10px"}}>
+        <div style={{padding:"8px 10px",borderRadius:8,background:"#F5F6F8",border:`1px solid ${C.line}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Fields affected</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
             {p.fields.map(f=>(
-              <span key={f} style={{fontSize:9,fontWeight:700,color:C.blue,
-                background:C.blueT2,padding:"2px 6px",borderRadius:4,fontFamily:"ui-monospace,monospace"}}>{f}</span>
-            ))}
-          </div>
-        </div>
-        <div style={{flex:1,padding:"8px 10px",borderRadius:8,background:"#F5F6F8",border:`1px solid ${C.line}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Counterparties</div>
-          <div style={{display:"flex",flexDirection:"column",gap:2}}>
-            {p.counterparties.map(cp=>(
-              <div key={cp} style={{display:"flex",alignItems:"center",gap:5}}>
-                <div style={{width:14,height:14,borderRadius:4,background:C.blueT,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:8,fontWeight:800,color:C.blue,flexShrink:0}}>
-                  {cp[0]}
-                </div>
-                <span style={{fontSize:10,color:C.ink2,lineHeight:1.2}}>{cp}</span>
-              </div>
+              <span key={f} style={{fontSize:10,fontWeight:700,color:C.blue,
+                background:C.blueT2,padding:"2px 8px",borderRadius:5,
+                fontFamily:"ui-monospace,SFMono-Regular,monospace"}}>{f}</span>
             ))}
           </div>
         </div>
       </div>
 
-      {/* E&O section */}
-      <div style={{margin:"0 16px",marginBottom:12,padding:"10px 12px",borderRadius:10,
+      {/* ── E&O status ── */}
+      <div style={{margin:"0 18px 10px",padding:"10px 12px",borderRadius:10,
         background:p.eo.bg,border:`1px solid ${p.eo.border}`}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <span style={{fontSize:12}}>{p.eo.required?"📋":"✅"}</span>
-            <span style={{fontSize:10,fontWeight:700,color:p.eo.colour,textTransform:"uppercase",letterSpacing:"0.06em"}}>E&O notification</span>
+            <span style={{fontSize:9,fontWeight:700,color:p.eo.colour,
+              textTransform:"uppercase",letterSpacing:"0.07em"}}>E&O Notification</span>
           </div>
           <span style={{fontSize:10,fontWeight:700,color:p.eo.colour,
-            background:"rgba(255,255,255,.6)",padding:"2px 8px",borderRadius:99}}>
+            background:"rgba(255,255,255,.7)",padding:"2px 9px",borderRadius:99,
+            border:`1px solid ${p.eo.border}`}}>
             {p.eo.status}
           </span>
         </div>
         <div style={{fontSize:11,color:p.eo.colour,lineHeight:1.55}}>{p.eo.note}</div>
-        {!p.eo.required&&(
-          <div style={{marginTop:5,fontSize:10,color:C.ink3,display:"flex",alignItems:"center",gap:4}}>
-            <span>✦ En:ACT agent · Control evidence auto-generated</span>
-          </div>
-        )}
       </div>
 
-      {/* cascade */}
-      <div style={{margin:"0 16px",marginBottom:14,padding:"6px 10px",borderRadius:8,
+      {/* ── Cascade risk ── */}
+      <div style={{margin:"0 18px 14px",padding:"6px 10px",borderRadius:8,
         background:"#F5F6F8",border:`1px solid ${C.line}`,
         display:"flex",alignItems:"center",gap:6}}>
         <span style={{fontSize:10}}>⛓</span>
-        <span style={{fontSize:10,color:C.ink3}}><b style={{color:C.ink2}}>Cascade risk:</b> {p.cascade}</span>
+        <span style={{fontSize:10,color:C.ink3,lineHeight:1.4}}>
+          <b style={{color:C.ink2,fontWeight:600}}>Cascade risk:</b> {p.cascade}
+        </span>
       </div>
 
-      {/* approve button */}
-      <div style={{padding:"0 16px 16px"}}>
+      {/* ── Approve button ── */}
+      <div style={{padding:"0 18px 18px"}}>
         <button onClick={onToggleApprove}
           style={{width:"100%",padding:"11px",borderRadius:10,fontWeight:700,fontSize:13,
-            cursor:"pointer",transition:"all .15s",
+            cursor:"pointer",letterSpacing:"0.01em",
             border:isApp?`1.5px solid ${C.green}`:`1.5px solid ${C.blue}`,
-            background:isApp?"#e6f9ee":C.blue,
+            background:isApp?"#dcfce7":C.blue,
             color:isApp?C.green:"#fff",
-            boxShadow:isApp?"none":`0 2px 12px ${C.blue}33`}}>
+            boxShadow:isApp?"none":`0 2px 14px ${C.blue}44`,
+            transition:"all .18s"}}>
           {isApp?"✓ Approved — click to revise":"Approve this fix →"}
         </button>
       </div>
