@@ -1267,86 +1267,96 @@ const MACRO_CLUSTERS = [
   { id:"RC-A", severity:"critical",
     title:"Identity & counterparty ID field failures",
     rcaType:"Regulatory Guidance · Field value status",
-    summary:"All 5,661 submissions carry LEI and entity identifier failures — structural source system mapping issue affecting 8 core party fields.",
+    source:"Regulatory Guidance",
+    summary:"All 5,661 submissions carry LEI and entity identifier failures — structural source system mapping issue affecting 8 core party fields. Likely a stale reference table or broken enrichment step in the reporting pipeline.",
     regimes:["EU EMIR"],
-    fieldsAffected:8,
-    failures:45859,
-    submissions:5661,
-    impactPct:100,
-    confidence:78,
+    fieldsAffected:8, failures:45859, submissions:5661, impactPct:100, confidence:78,
     crossRegime:false,
-    topFields:["Report submitting entity ID","Entity responsible for reporting","Counterparty 1 ID","Counterparty 2","Venue of execution"],
-    pattern:"Recurring across all time periods — not intermittent" },
+    pattern:"Recurring across all time periods — not intermittent",
+    fieldBreakdown:[
+      {field:"1_2_report_submitting_entity_id", label:"Report submitting entity ID",    failures:5661, pct:100},
+      {field:"1_3_entity_responsible_for_reporting", label:"Entity responsible for reporting", failures:5661, pct:100},
+      {field:"1_4_cpty_1_id",  label:"Counterparty 1 (Reporting counterparty)", failures:5661, pct:100},
+      {field:"1_9_cpty_2_id",  label:"Counterparty 2",                          failures:5661, pct:100},
+      {field:"2_41_execution_venue", label:"Venue of execution",                failures:5661, pct:100},
+    ]},
 
   { id:"RC-B", severity:"high",
     title:"Regulatory text interpretation — multi-field",
-    rcaType:"Regulatory Text · Multi-field",
-    summary:"62 fields across CFTC P45 and EU MiFIR showing systematic interpretation gaps in derived field and conditionality logic.",
+    rcaType:"Regulatory Text · Derived field logic",
+    source:"Regulatory Text",
+    summary:"62 fields across CFTC P45 and EU MiFIR showing systematic interpretation gaps in derived field and conditionality logic. Same structural gap, different field mappings per regime.",
     regimes:["CFTC P45","EU MiFIR"],
-    fieldsAffected:62,
-    failures:12882,
-    submissions:3600,
-    impactPct:36,
-    confidence:55,
+    fieldsAffected:62, failures:12882, submissions:3600, impactPct:36, confidence:55,
     crossRegime:true,
-    topFields:["Country of branch (buyer)","Buyer decision maker code","Seller decision maker code","Price currency","Quantity currency"],
-    pattern:"Cross-regime — same structural gap, different field mappings" },
+    pattern:"Cross-regime — same root cause, different field path per regime",
+    fieldBreakdown:[
+      {field:"8_buyer_cc",        label:"Country of branch (buyer)",      failures:1401, pct:39},
+      {field:"12_buyer_dm_id_code",label:"Buyer decision maker code",     failures:1401, pct:39},
+      {field:"17_seller_cc",      label:"Country of branch (seller)",     failures:1031, pct:29},
+      {field:"21_seller_dm_id_code",label:"Seller decision maker code",   failures:1031, pct:29},
+      {field:"31_quantity_currency",label:"Quantity currency",            failures:998,  pct:28},
+      {field:"34_price_currency", label:"Price currency",                 failures:792,  pct:22},
+    ]},
 
   { id:"RC-C", severity:"high",
     title:"ISIN format non-compliance",
     rcaType:"Regulatory Guidance · Field Format",
-    summary:"ISIN field transmitted in non-compliant format across 4,822 EU EMIR submissions. Single-field, single pipeline — high fix confidence.",
+    source:"Regulatory Guidance",
+    summary:"ISIN field transmitted in non-compliant format across 4,822 submissions. Single-field, single pipeline — high fix confidence. Likely a formatting step missing in the transformation layer.",
     regimes:["EU EMIR"],
-    fieldsAffected:1,
-    failures:4822,
-    submissions:5661,
-    impactPct:85,
-    confidence:84,
+    fieldsAffected:1, failures:4822, submissions:5661, impactPct:85, confidence:84,
     crossRegime:false,
-    topFields:["ISIN (2_7_isin)"],
-    pattern:"Consistent format error — likely pipeline transformation step" },
+    pattern:"Consistent format error — single pipeline, single fix",
+    fieldBreakdown:[
+      {field:"2_7_isin", label:"ISIN", failures:4822, pct:85},
+    ]},
 
   { id:"RC-D", severity:"high",
     title:"UPI product conditionality gap",
     rcaType:"Novatus Anomaly · UPI Conditionality",
-    summary:"Delivery type and asset class fields not correctly populated under UPI conditionality rules — 4,173 failures. Agent confidence high on asset class fix.",
+    source:"Novatus Anomaly",
+    summary:"Delivery type and asset class fields not correctly populated under UPI conditionality rules. Agent confidence high on asset class fix (100%). Likely absent conditional branch in derivation logic.",
     regimes:["EU EMIR"],
-    fieldsAffected:2,
-    failures:4173,
-    submissions:5661,
-    impactPct:59,
-    confidence:90,
+    fieldsAffected:2, failures:4173, submissions:5661, impactPct:59, confidence:90,
     crossRegime:false,
-    topFields:["Delivery type (2_47)","Asset class (2_11)"],
-    pattern:"Conditionality logic absent — known Novatus anomaly class" },
+    pattern:"Conditionality logic absent — known Novatus anomaly class",
+    fieldBreakdown:[
+      {field:"2_47_delivery_type", label:"Delivery type",  failures:3334, pct:59},
+      {field:"2_11_asset_class",   label:"Asset class",    failures:839,  pct:15},
+    ]},
 
   { id:"RC-E", severity:"medium",
     title:"Field conditionality logic failures",
     rcaType:"Regulatory Guidance · Field Conditionality",
-    summary:"7 fields failing conditionality rules — UPI, strike price, package identifiers. Mix of absent derivation rules and stale conditional logic.",
+    source:"Regulatory Guidance",
+    summary:"7 fields failing conditionality rules — UPI, strike price currency, package identifiers, exchange rate basis. Mix of absent derivation rules and stale conditional logic.",
     regimes:["EU EMIR"],
-    fieldsAffected:7,
-    failures:3578,
-    submissions:5661,
-    impactPct:44,
-    confidence:62,
+    fieldsAffected:7, failures:3578, submissions:5661, impactPct:44, confidence:62,
     crossRegime:false,
-    topFields:["Unique product identifier (UPI)","Strike price currency","Package identifier","Exchange rate basis"],
-    pattern:"Multiple derivation rule gaps — grouped by conditionality failure type" },
+    pattern:"Multiple derivation rule gaps — grouped by conditionality failure type",
+    fieldBreakdown:[
+      {field:"2_8_upi",               label:"Unique product identifier (UPI)",  failures:2495, pct:44},
+      {field:"2_51_strike_price_ccy", label:"Strike price currency/pair",       failures:433,  pct:8},
+      {field:"2_2_package_id",        label:"Package identifier",               failures:369,  pct:7},
+      {field:"2_56_exchange_rate",    label:"Exchange rate basis",              failures:205,  pct:4},
+      {field:"1_3_entity_reporting",  label:"Entity responsible for reporting", failures:68,   pct:1},
+    ]},
 
   { id:"RC-F", severity:"medium",
     title:"Cross-regime counterparty identifier drift",
     rcaType:"Regulatory Guidance · Cross-regime",
-    summary:"Counterparty 2 identifier failing across EU EMIR and CFTC P45 — 6,099 combined failures. Same structural root cause, different regime field mappings.",
+    source:"Regulatory Guidance",
+    summary:"Counterparty 2 identifier failing across EU EMIR and CFTC P45 — same structural ref-data gap, different field mappings per regime. Single fix to the counterparty reference table resolves both.",
     regimes:["EU EMIR","CFTC P45"],
-    fieldsAffected:4,
-    failures:924,
-    submissions:5661,
-    impactPct:16,
-    confidence:71,
+    fieldsAffected:4, failures:924, submissions:5661, impactPct:16, confidence:71,
     crossRegime:true,
-    topFields:["Counterparty 2 (EU EMIR)","Receiver Identifier Leg 2 (CFTC)","Payer Identifier Leg 2 (CFTC)"],
-    pattern:"Cross-regime — same counterparty ref-data gap, mapped differently" },
+    pattern:"Cross-regime — single ref-data fix resolves both regimes",
+    fieldBreakdown:[
+      {field:"1_9_cpty_2_id",           label:"Counterparty 2 (EU EMIR)",        failures:438, pct:8},
+      {field:"1_76_receiver_id_leg2",   label:"Receiver Identifier — Leg 2 (CFTC)", failures:457, pct:9},
+      {field:"1_74_payer_id_leg2",      label:"Payer Identifier — Leg 2 (CFTC)",    failures:455, pct:9},
+    ]},
 ];
 
 const MACRO_SUMMARY = {
@@ -1691,144 +1701,295 @@ const sevCfg = {
   low:     {col:"#166534",bg:"#F0FDF4",label:"Low"},
 };
 
+const PRIORITY_CFG={
+  P1:{bg:"#FEF2F2",col:"#e14a37",border:"#FECACA"},
+  P2:{bg:"#FFF7ED",col:"#B45309",border:"#FDE68A"},
+  P3:{bg:"#EBF2FB",col:C.blue,   border:"#BFDBFE"},
+};
+
 const MacroView=({onLaunch})=>{
   const [activeRegime,setActiveRegime]=useState("All");
-  const [selectedCluster,setSelectedCluster]=useState(null);
-
-  const displayed = activeRegime==="All"
-    ? MACRO_CLUSTERS
-    : MACRO_CLUSTERS.filter(c=>c.regimes.includes(activeRegime));
+  const [expanded,setExpanded]=useState({});       // {id: bool}
+  const [priorities,setPriorities]=useState({});   // {id: "P1"|"P2"|"P3"|null}
+  const [queued,setQueued]=useState({});           // {id: bool}
+  const [sortBy,setSortBy]=useState("failures");   // failures|impact|confidence
 
   const regimePills=["All","EU EMIR","CFTC P45","EU MiFIR"];
 
-  const ClusterCard=({c})=>{
+  const displayed = React.useMemo(()=>{
+    let arr = activeRegime==="All"
+      ? [...MACRO_CLUSTERS]
+      : MACRO_CLUSTERS.filter(c=>c.regimes.includes(activeRegime));
+    if(sortBy==="failures")   arr.sort((a,b)=>b.failures-a.failures);
+    if(sortBy==="impact")     arr.sort((a,b)=>b.impactPct-a.impactPct);
+    if(sortBy==="confidence") arr.sort((a,b)=>b.confidence-a.confidence);
+    return arr;
+  },[activeRegime,sortBy]);
+
+  const queuedList=MACRO_CLUSTERS.filter(c=>queued[c.id]);
+  const hasQueue=queuedList.length>0;
+
+  const toggleExpand=id=>setExpanded(p=>({...p,[id]:!p[id]}));
+  const toggleQueue=id=>setQueued(p=>({...p,[id]:!p[id]}));
+  const setPri=(id,p)=>setPriorities(prev=>({...prev,[id]:prev[id]===p?null:p}));
+
+  const SortBtn=({k,label})=>(
+    <button onClick={()=>setSortBy(k)}
+      style={{
+        padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
+        background:sortBy===k?C.blue:"transparent",
+        color:sortBy===k?"#fff":C.ink3,
+        border:`1px solid ${sortBy===k?C.blue:C.line}`,
+        transition:"all 120ms",
+      }}>{label}</button>
+  );
+
+  // ── single cluster row ──────────────────────────────────────────────────────
+  const ClusterRow=({c})=>{
     const sev=sevCfg[c.severity]||sevCfg.medium;
-    const isSelected=selectedCluster===c.id;
-    const leftBorder=c.crossRegime
-      ? "linear-gradient(180deg,#44709D,#B05D00)"
-      : sev.col;
-    const confidenceDots=Array.from({length:5}).map((_,i)=>
-      i<Math.round(c.confidence/20)?"●":"○"
-    );
+    const isOpen=!!expanded[c.id];
+    const pri=priorities[c.id];
+    const priCfg=pri?PRIORITY_CFG[pri]:null;
+    const inQueue=!!queued[c.id];
+
     return(
       <div style={{
         background:"#fff",
-        borderRadius:12,
-        border:`1px solid ${isSelected?sev.col:C.line}`,
-        boxShadow:isSelected?`0 4px 16px ${sev.col}22`:"0 1px 4px rgba(0,0,0,0.05)",
+        borderRadius:10,
+        border:`1.5px solid ${inQueue?C.blue:isOpen?"#CBD5E1":C.line}`,
+        boxShadow:inQueue?`0 0 0 3px ${C.blueT2}`:isOpen?"0 2px 12px rgba(0,0,0,0.07)":"none",
+        transition:"all 150ms ease",
         overflow:"hidden",
-        transition:"all 160ms ease",
-        position:"relative",
-        display:"flex",
-        flexDirection:"column",
       }}>
-        {/* left border accent */}
-        <div style={{
-          position:"absolute",left:0,top:0,bottom:0,width:4,
-          background:leftBorder,
-          borderRadius:"12px 0 0 12px",
-        }}/>
 
-        <div style={{padding:"16px 16px 16px 20px",display:"flex",flexDirection:"column",gap:12}}>
+        {/* ── row header ── */}
+        <div
+          onClick={()=>toggleExpand(c.id)}
+          style={{
+            display:"grid",
+            gridTemplateColumns:"18px 72px 1fr 90px 80px 80px 100px 44px 36px",
+            alignItems:"center",
+            gap:12,
+            padding:"12px 16px",
+            cursor:"pointer",
+            userSelect:"none",
+          }}
+        >
+          {/* severity dot */}
+          <div style={{
+            width:10,height:10,borderRadius:999,
+            background:sev.col,flexShrink:0,
+          }}/>
 
-          {/* header row */}
-          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <span style={{
-              display:"inline-flex",alignItems:"center",gap:5,
-              padding:"3px 10px",borderRadius:999,
-              background:sev.bg,color:sev.col,
-              fontSize:11,fontWeight:700,
-            }}>
-              <span style={{width:6,height:6,borderRadius:999,background:sev.col,flexShrink:0}}/>
-              {sev.label}
-            </span>
-            <span style={{fontSize:10,color:C.ink3,fontWeight:600,letterSpacing:"0.04em"}}>{c.rcaType}</span>
+          {/* RC id + cross-regime badge */}
+          <div style={{display:"flex",flexDirection:"column",gap:3}}>
+            <span style={{fontSize:12,fontWeight:800,color:C.ink,fontFamily:"ui-monospace,monospace",letterSpacing:"0.02em"}}>{c.id}</span>
             {c.crossRegime&&(
               <span style={{
-                display:"inline-flex",alignItems:"center",gap:4,
-                padding:"2px 8px",borderRadius:999,
-                background:C.blueT2,color:C.blue,
-                fontSize:10,fontWeight:700,
-              }}>Cross-regime ↗</span>
+                fontSize:9,fontWeight:700,color:C.blue,background:C.blueT2,
+                padding:"1px 5px",borderRadius:4,width:"fit-content",
+              }}>↗ cross</span>
             )}
           </div>
 
-          {/* title + summary */}
-          <div>
-            <div style={{fontSize:14,fontWeight:700,color:C.ink,lineHeight:1.35,marginBottom:6}}>{c.title}</div>
+          {/* title + regime badges */}
+          <div style={{minWidth:0}}>
             <div style={{
-              fontSize:12,color:C.ink2,lineHeight:1.55,
-              display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",
-            }}>{c.summary}</div>
+              fontSize:13,fontWeight:700,color:C.ink,lineHeight:1.3,
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+            }}>{c.title}</div>
+            <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>
+              {c.regimes.map(r=>(
+                <span key={r} style={{
+                  fontSize:9,fontWeight:700,color:C.blue,
+                  background:C.blueT2,padding:"1px 6px",borderRadius:4,
+                }}>{r}</span>
+              ))}
+              <span style={{
+                fontSize:9,fontWeight:600,color:C.ink3,
+                background:"#F1F5F9",padding:"1px 6px",borderRadius:4,
+              }}>{c.fieldsAffected} field{c.fieldsAffected!==1?"s":""}</span>
+            </div>
+          </div>
+
+          {/* failures */}
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:14,fontWeight:800,color:sev.col,letterSpacing:"-0.02em"}}>{c.failures.toLocaleString()}</div>
+            <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}}>failures</div>
           </div>
 
           {/* impact bar */}
           <div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-              <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em"}}>Impact</span>
-              <span style={{fontSize:22,fontWeight:800,color:sev.col,letterSpacing:"-0.02em",lineHeight:1}}>{c.impactPct}%</span>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>Impact</span>
+              <span style={{fontSize:11,fontWeight:800,color:sev.col}}>{c.impactPct}%</span>
             </div>
-            <div style={{height:6,background:C.muted,borderRadius:999,overflow:"hidden"}}>
-              <div style={{width:`${c.impactPct}%`,height:"100%",background:sev.col,borderRadius:999,transition:"width 400ms ease"}}/>
+            <div style={{height:4,background:C.muted,borderRadius:999}}>
+              <div style={{width:`${c.impactPct}%`,height:"100%",background:sev.col,borderRadius:999}}/>
             </div>
           </div>
 
-          {/* metrics row */}
-          <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <div style={{textAlign:"center"}}>
-              <div style={{fontSize:18,fontWeight:800,color:sev.col,letterSpacing:"-0.02em",lineHeight:1}}>{c.failures.toLocaleString()}</div>
-              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>failures</div>
-            </div>
-            <div style={{width:1,height:28,background:C.line,flexShrink:0}}/>
-            <div style={{textAlign:"center"}}>
-              <div style={{fontSize:18,fontWeight:800,color:C.ink,letterSpacing:"-0.02em",lineHeight:1}}>{c.fieldsAffected}</div>
-              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>fields</div>
-            </div>
-            <div style={{width:1,height:28,background:C.line,flexShrink:0}}/>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                {c.regimes.map(r=>(
-                  <span key={r} style={{fontSize:10,fontWeight:600,color:C.blue,background:C.blueT2,padding:"1px 7px",borderRadius:999}}>{r}</span>
+          {/* confidence */}
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:14,fontWeight:800,color:C.ink,letterSpacing:"-0.02em"}}>{c.confidence}%</div>
+            <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}}>confidence</div>
+          </div>
+
+          {/* priority picker */}
+          <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4}}>
+            {["P1","P2","P3"].map(p=>{
+              const pc=PRIORITY_CFG[p];
+              const active=pri===p;
+              return(
+                <button key={p} onClick={()=>setPri(c.id,p)}
+                  style={{
+                    flex:1,padding:"3px 0",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",
+                    background:active?pc.col:"transparent",
+                    color:active?"#fff":pc.col,
+                    border:`1.5px solid ${active?pc.col:pc.border}`,
+                    transition:"all 120ms",
+                  }}>{p}</button>
+              );
+            })}
+          </div>
+
+          {/* queue toggle */}
+          <div onClick={e=>e.stopPropagation()}
+            style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <button onClick={()=>toggleQueue(c.id)}
+              title={inQueue?"Remove from queue":"Add to queue"}
+              style={{
+                width:28,height:28,borderRadius:6,cursor:"pointer",
+                background:inQueue?C.blue:C.blueT2,
+                color:inQueue?"#fff":C.blue,
+                border:`1.5px solid ${inQueue?C.blue:C.blueT}`,
+                fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",
+                transition:"all 140ms",
+              }}>{inQueue?"✓":"+"}</button>
+          </div>
+
+          {/* chevron */}
+          <div style={{
+            display:"flex",alignItems:"center",justifyContent:"center",
+            color:C.ink3,fontSize:12,
+            transform:isOpen?"rotate(180deg)":"rotate(0deg)",
+            transition:"transform 200ms",
+          }}>▾</div>
+        </div>
+
+        {/* ── expanded detail ── */}
+        {isOpen&&(
+          <div style={{
+            borderTop:`1px solid ${C.line}`,
+            background:"#FAFBFC",
+            padding:"20px 20px 20px 46px",
+            display:"flex",gap:28,
+          }}>
+
+            {/* left: field breakdown table */}
+            <div style={{flex:"0 0 420px"}}>
+              <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Field breakdown</div>
+              <div style={{borderRadius:8,border:`1px solid ${C.line}`,overflow:"hidden",background:"#fff"}}>
+                <div style={{
+                  display:"grid",gridTemplateColumns:"1fr 80px 1fr",
+                  padding:"6px 12px",background:"#F8FAFC",
+                  borderBottom:`1px solid ${C.line}`,
+                }}>
+                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em"}}>Field</span>
+                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"right"}}>Failures</span>
+                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:12}}>% impact</span>
+                </div>
+                {c.fieldBreakdown.map((f,i)=>(
+                  <div key={f.field} style={{
+                    display:"grid",gridTemplateColumns:"1fr 80px 1fr",
+                    padding:"9px 12px",
+                    borderBottom:i<c.fieldBreakdown.length-1?`1px solid ${C.line}`:"none",
+                    alignItems:"center",
+                  }}>
+                    <div>
+                      <div style={{fontSize:11,fontWeight:700,color:C.ink,lineHeight:1.2}}>{f.label}</div>
+                      <div style={{
+                        fontSize:9,color:C.ink3,fontFamily:"ui-monospace,monospace",
+                        marginTop:2,fontWeight:500,
+                      }}>{f.field}</div>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:12,fontWeight:700,color:sev.col}}>{f.failures.toLocaleString()}</div>
+                    <div style={{paddingLeft:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{flex:1,height:4,background:C.muted,borderRadius:999}}>
+                          <div style={{width:`${f.pct}%`,height:"100%",background:sev.col,borderRadius:999}}/>
+                        </div>
+                        <span style={{fontSize:10,fontWeight:700,color:sev.col,minWidth:28,textAlign:"right"}}>{f.pct}%</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* confidence dots */}
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:10,color:C.ink3,fontWeight:600,flexShrink:0}}>Agent confidence</span>
-            <span style={{fontSize:14,letterSpacing:2,color:sev.col}}>{confidenceDots.join("")}</span>
-            <span style={{fontSize:10,color:sev.col,fontWeight:700}}>{c.confidence}%</span>
-          </div>
+            {/* right: summary + metadata */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:14}}>
 
-          {/* top fields */}
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-            {c.topFields.slice(0,3).map(f=>(
-              <span key={f} style={{
-                fontSize:10,fontWeight:600,
-                color:C.blue,background:C.blueT2,
-                padding:"2px 8px",borderRadius:5,
-                fontFamily:"ui-monospace,SFMono-Regular,monospace",
-              }}>{f}</span>
-            ))}
-          </div>
-
-          {/* pattern note */}
-          <div style={{fontSize:11,color:C.ink3,fontStyle:"italic"}}>↻ {c.pattern}</div>
-
-          {/* footer */}
-          <div style={{display:"flex",justifyContent:"flex-end",paddingTop:4,borderTop:`1px solid ${C.line}`}}>
-            <button onClick={()=>setSelectedCluster(isSelected?null:c.id)}
-              style={{
-                padding:"5px 14px",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer",
-                background:"transparent",color:isSelected?sev.col:C.ink2,
-                border:`1px solid ${isSelected?sev.col:C.line2}`,
-                transition:"all 140ms ease",
+              {/* RCA type badge */}
+              <div style={{
+                display:"inline-flex",alignItems:"center",gap:6,
+                padding:"4px 10px",borderRadius:6,width:"fit-content",
+                background:sev.bg,border:`1px solid ${sev.col}33`,
               }}>
-              {isSelected?"Selected ✓":"Investigate →"}
-            </button>
+                <span style={{width:6,height:6,borderRadius:999,background:sev.col,flexShrink:0}}/>
+                <span style={{fontSize:11,fontWeight:700,color:sev.col}}>{sev.label}</span>
+                <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>·</span>
+                <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>{c.rcaType}</span>
+              </div>
+
+              {/* summary */}
+              <div style={{fontSize:12,color:C.ink2,lineHeight:1.65}}>{c.summary}</div>
+
+              {/* pattern note */}
+              <div style={{
+                display:"flex",alignItems:"flex-start",gap:8,
+                padding:"10px 12px",background:"#fff",
+                borderRadius:7,border:`1px solid ${C.line}`,
+              }}>
+                <span style={{fontSize:14,flexShrink:0,marginTop:1}}>↻</span>
+                <span style={{fontSize:11,color:C.ink3,lineHeight:1.5,fontStyle:"italic"}}>{c.pattern}</span>
+              </div>
+
+              {/* source + submissions */}
+              <div style={{display:"flex",gap:10}}>
+                {[
+                  {l:"Source",      v:c.source},
+                  {l:"Submissions", v:c.submissions.toLocaleString()},
+                  {l:"Confidence",  v:`${c.confidence}%`},
+                ].map(({l,v})=>(
+                  <div key={l} style={{
+                    flex:1,padding:"8px 10px",
+                    background:"#fff",borderRadius:6,
+                    border:`1px solid ${C.line}`,
+                  }}>
+                    <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{l}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:C.ink}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* queue / investigate CTA */}
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <button onClick={()=>toggleQueue(c.id)}
+                  style={{
+                    flex:1,padding:"9px 14px",borderRadius:7,
+                    fontSize:12,fontWeight:700,cursor:"pointer",
+                    background:inQueue?"#EBF2FB":"#fff",
+                    color:inQueue?C.blue:C.ink2,
+                    border:`1.5px solid ${inQueue?C.blue:C.line}`,
+                    transition:"all 140ms",
+                  }}>
+                  {inQueue?"✓ In investigation queue":"+ Add to investigation queue"}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -1838,7 +1999,7 @@ const MacroView=({onLaunch})=>{
 
       {/* ── LEFT SIDEBAR ── */}
       <div style={{
-        width:280,background:"#0F1E2E",color:"#fff",
+        width:256,background:"#0F1E2E",color:"#fff",
         display:"flex",flexDirection:"column",
         padding:"22px 16px 20px",gap:0,flexShrink:0,
         borderRight:"1px solid #ffffff15",
@@ -1885,6 +2046,7 @@ const MacroView=({onLaunch})=>{
             {[
               {l:"Submissions scanned", v:MACRO_SUMMARY.totalSubmissions.toLocaleString()},
               {l:"Fields analysed",     v:MACRO_SUMMARY.fieldsWithIssues},
+              {l:"Root cause clusters", v:MACRO_CLUSTERS.length},
               {l:"Regimes",             v:MACRO_SUMMARY.regimes.length},
             ].map(({l,v})=>(
               <div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1904,7 +2066,7 @@ const MacroView=({onLaunch})=>{
               return(
                 <button key={r} onClick={()=>setActiveRegime(r)}
                   style={{
-                    padding:"5px 12px",borderRadius:999,fontSize:11,fontWeight:600,cursor:"pointer",
+                    padding:"5px 11px",borderRadius:999,fontSize:11,fontWeight:600,cursor:"pointer",
                     background:active?C.blue:"transparent",
                     color:active?"#fff":"rgba(255,255,255,0.6)",
                     border:`1px solid ${active?C.blue:"rgba(255,255,255,0.2)"}`,
@@ -1915,39 +2077,57 @@ const MacroView=({onLaunch})=>{
           </div>
         </div>
 
-        {/* group by toggle */}
-        <div style={{marginBottom:24}}>
-          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Group by</div>
-          <div style={{display:"flex",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:6,border:"1px solid rgba(255,255,255,0.1)",overflow:"hidden"}}>
-            {["Root cause","Regime","Field type"].map((g,i)=>(
-              <button key={g}
-                style={{
-                  flex:1,padding:"6px 0",fontSize:10,fontWeight:600,cursor:"pointer",
-                  background:i===0?"rgba(68,112,173,0.35)":"transparent",
-                  color:i===0?"#fff":"rgba(255,255,255,0.5)",
-                  border:"none",
-                  borderBottom:i===0?`2px solid ${C.blue}`:"2px solid transparent",
-                  transition:"all 120ms ease",
-                }}>{g}</button>
-            ))}
-          </div>
+        {/* severity breakdown */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Severity</div>
+          {["critical","high","medium"].map(s=>{
+            const cnt=MACRO_CLUSTERS.filter(c=>c.severity===s).length;
+            const cfg=sevCfg[s];
+            return(
+              <div key={s} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                <div style={{width:8,height:8,borderRadius:999,background:cfg.col,flexShrink:0}}/>
+                <span style={{fontSize:11,color:"rgba(255,255,255,0.6)",flex:1,textTransform:"capitalize"}}>{cfg.label}</span>
+                <span style={{
+                  fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.9)",
+                  background:"rgba(255,255,255,0.1)",padding:"1px 7px",borderRadius:999,
+                }}>{cnt}</span>
+              </div>
+            );
+          })}
         </div>
+
+        {/* queue summary */}
+        {hasQueue&&(
+          <div style={{
+            padding:"10px 12px",marginBottom:16,
+            background:"rgba(68,112,173,0.2)",
+            border:"1px solid rgba(68,112,173,0.4)",
+            borderRadius:8,
+          }}>
+            <div style={{fontSize:10,color:C.blueT,fontWeight:700,marginBottom:4}}>Investigation queue</div>
+            <div style={{fontSize:22,fontWeight:800,color:"#fff",lineHeight:1}}>{queuedList.length}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:2}}>cluster{queuedList.length!==1?"s":""} selected</div>
+          </div>
+        )}
 
         <div style={{flex:1}}/>
 
         {/* launch button */}
-        <button onClick={onLaunch}
+        <button
+          onClick={hasQueue?onLaunch:undefined}
           style={{
             width:"100%",padding:"12px",borderRadius:8,
-            fontSize:13,fontWeight:700,cursor:"pointer",
-            background:C.blue,color:"#fff",
-            border:`1.5px solid ${C.blue}`,
-            boxShadow:`0 4px 16px ${C.blue}55`,
+            fontSize:13,fontWeight:700,
+            cursor:hasQueue?"pointer":"default",
+            background:hasQueue?C.blue:"rgba(255,255,255,0.08)",
+            color:hasQueue?"#fff":"rgba(255,255,255,0.3)",
+            border:`1.5px solid ${hasQueue?C.blue:"rgba(255,255,255,0.12)"}`,
+            boxShadow:hasQueue?`0 4px 16px ${C.blue}55`:"none",
             transition:"all 160ms ease",
             display:"flex",alignItems:"center",justifyContent:"center",gap:8,
           }}>
-          <AIStar size={14} colour="#fff"/>
-          Launch Root Cause Agent →
+          <AIStar size={14} colour={hasQueue?"#fff":"rgba(255,255,255,0.3)"}/>
+          {hasQueue?"Launch Root Cause Agent →":"Select clusters to launch"}
         </button>
       </div>
 
@@ -1955,25 +2135,166 @@ const MacroView=({onLaunch})=>{
       <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:"#F5F6F8"}}>
 
         {/* top bar */}
-        <div style={{padding:"20px 28px 16px",background:"#fff",borderBottom:`1px solid ${C.line}`,flexShrink:0,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
+        <div style={{
+          padding:"16px 24px",background:"#fff",
+          borderBottom:`1px solid ${C.line}`,flexShrink:0,
+          display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,
+        }}>
           <div>
-            <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
-            <div style={{fontSize:12,color:C.ink2,marginTop:4}}>
+            <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
+            <div style={{fontSize:12,color:C.ink2,marginTop:3}}>
               {displayed.length} root cause clusters · {MACRO_SUMMARY.totalFailures.toLocaleString()} total failures · {MACRO_SUMMARY.window}
             </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:11,color:C.ink3,fontWeight:600,marginRight:4}}>Sort by</span>
+            <SortBtn k="failures"   label="Failures"/>
+            <SortBtn k="impact"     label="Impact %"/>
+            <SortBtn k="confidence" label="Confidence"/>
           </div>
           <Clock/>
         </div>
 
-        {/* cluster cards grid */}
-        <div style={{flex:1,overflowY:"auto",padding:24}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16}}>
+        {/* table header */}
+        <div style={{
+          display:"grid",
+          gridTemplateColumns:"18px 72px 1fr 90px 80px 80px 100px 44px 36px",
+          gap:12,padding:"8px 16px",
+          background:"#F8FAFC",
+          borderBottom:`1px solid ${C.line}`,
+          flexShrink:0,
+        }}>
+          {["","ID","Title / Regime","Failures","Impact","Confidence","Priority","Queue",""].map((h,i)=>(
+            <div key={i} style={{
+              fontSize:9,fontWeight:700,color:C.ink3,
+              textTransform:"uppercase",letterSpacing:"0.08em",
+              textAlign:i===3||i===5?"right":"left",
+            }}>{h}</div>
+          ))}
+        </div>
+
+        {/* rows */}
+        <div style={{flex:1,overflowY:"auto",padding:"12px 12px 24px"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {displayed.map(c=>(
-              <ClusterCard key={c.id} c={c}/>
+              <ClusterRow key={c.id} c={c}/>
             ))}
           </div>
+
+          {/* bottom hint when nothing queued */}
+          {!hasQueue&&(
+            <div style={{
+              marginTop:20,padding:"14px 20px",
+              background:"#fff",borderRadius:10,
+              border:`1px dashed ${C.line}`,
+              display:"flex",alignItems:"center",gap:10,
+            }}>
+              <span style={{fontSize:18,opacity:0.4}}>☝</span>
+              <div>
+                <div style={{fontSize:12,fontWeight:600,color:C.ink2}}>Click any row to expand · use + to queue clusters for investigation</div>
+                <div style={{fontSize:11,color:C.ink3,marginTop:2}}>Assign P1/P2/P3 priority, then launch the root cause agent when ready.</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ── QUEUE PANEL (slides in from right) ── */}
+      {hasQueue&&(
+        <div style={{
+          width:260,background:"#fff",flexShrink:0,
+          borderLeft:`1.5px solid ${C.blue}33`,
+          display:"flex",flexDirection:"column",
+          boxShadow:"-4px 0 20px rgba(68,112,173,0.08)",
+        }}>
+          <div style={{
+            padding:"16px 16px 12px",
+            borderBottom:`1px solid ${C.line}`,
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+          }}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.ink}}>Investigation queue</div>
+              <div style={{fontSize:11,color:C.ink3,marginTop:2}}>{queuedList.length} cluster{queuedList.length!==1?"s":""} selected</div>
+            </div>
+            <button onClick={()=>setQueued({})}
+              style={{
+                padding:"3px 8px",borderRadius:5,fontSize:10,fontWeight:600,
+                cursor:"pointer",background:"#FEF2F2",color:"#e14a37",
+                border:"1px solid #FECACA",
+              }}>Clear</button>
+          </div>
+
+          <div style={{flex:1,overflowY:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+            {queuedList.map(c=>{
+              const sev=sevCfg[c.severity]||sevCfg.medium;
+              const pri=priorities[c.id];
+              return(
+                <div key={c.id} style={{
+                  padding:"10px 12px",borderRadius:8,
+                  background:"#F8FAFC",
+                  border:`1px solid ${C.line}`,
+                  position:"relative",
+                }}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                        <span style={{
+                          fontSize:9,fontWeight:800,color:sev.col,
+                          background:sev.bg,padding:"1px 5px",borderRadius:4,
+                        }}>{c.id}</span>
+                        {pri&&(
+                          <span style={{
+                            fontSize:9,fontWeight:700,
+                            color:PRIORITY_CFG[pri].col,
+                            background:PRIORITY_CFG[pri].bg,
+                            padding:"1px 5px",borderRadius:4,
+                          }}>{pri}</span>
+                        )}
+                      </div>
+                      <div style={{
+                        fontSize:11,fontWeight:700,color:C.ink,lineHeight:1.3,
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+                      }}>{c.title}</div>
+                      <div style={{fontSize:10,color:C.ink3,marginTop:3}}>
+                        {c.failures.toLocaleString()} failures · {c.impactPct}% impact
+                      </div>
+                    </div>
+                    <button onClick={()=>toggleQueue(c.id)}
+                      style={{
+                        background:"transparent",border:"none",
+                        cursor:"pointer",color:C.ink3,fontSize:14,
+                        lineHeight:1,padding:"2px",flexShrink:0,
+                      }}>×</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{padding:"14px 16px",borderTop:`1px solid ${C.line}`}}>
+            <div style={{
+              fontSize:10,color:C.ink3,marginBottom:10,lineHeight:1.5,
+              padding:"8px 10px",background:"#F8FAFC",borderRadius:6,
+              border:`1px solid ${C.line}`,
+            }}>
+              Root cause agent will run diagnostics on {queuedList.length} cluster{queuedList.length!==1?"s":""} in sequence, generating detailed fix plans for each.
+            </div>
+            <button onClick={onLaunch}
+              style={{
+                width:"100%",padding:"11px",borderRadius:8,
+                fontSize:13,fontWeight:700,cursor:"pointer",
+                background:C.blue,color:"#fff",
+                border:`1.5px solid ${C.blue}`,
+                boxShadow:`0 4px 16px ${C.blue}44`,
+                display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+                transition:"all 140ms",
+              }}>
+              <AIStar size={13} colour="#fff"/>
+              Launch Root Cause Agent →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
