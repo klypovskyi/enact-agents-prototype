@@ -349,7 +349,7 @@ const Tracker=({stage})=>{
     {id:"plan", label:"Rem Plan"},
   ];
   const stateOf=id=>{
-    if(stage==="macro")        return "pending";
+    if(stage==="macro")        return id==="root"?"active":"pending";
     if(stage==="running:root") return id==="root"?"running":"pending";
     if(stage==="review:root")  return id==="root"?"review":"pending";
     if(stage==="remediation")  return id==="root"?"done":id==="sim"?"active":"pending";
@@ -1485,92 +1485,91 @@ const MACRO_SUMMARY = {
 const RC_MAP={"FX-RC1":ROOT_CAUSES[0],"FX-RC2":ROOT_CAUSES[1],"FX-RC3":ROOT_CAUSES[2],"FX-RC4":CASCADE_RC};
 
 // ── Remediation Plan screen ───────────────────────────────────────────────────
-// Step types: "auto" = En:ACT executes | "human" = human action required | "review" = compliance sign-off
+// Step types: "human" = person action required | "review" = compliance sign-off | "assisted" = En:ACT prepares, human confirms
 const PLAN_ITEMS=[
   { id:"P1", rcId:"RC1", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
-    priority:1, records:415, exposure:"£312M", confidence:89, eta:"~1h",
+    priority:1, records:415, exposure:"£312M", confidence:89, eta:"~1–2 days",
     rootCause:"broker_code_lei_ref_dict not refreshed since 14 Jan 2026 — 3 counterparties onboarded after last refresh have no LEI entry. Lookup fails at final table step; field 1_14_counterparty_2 written blank or with stale pre-merger ID.",
     steps:[
-      { type:"auto",   num:1, title:"Validate missing entries",
-        what:"Query GLEIF registry for current LEIs of 3 affected counterparties. Cross-check against existing dict for stale or merged entries.",
-        input:"broker_code_lei_ref_dict (current state)",
-        output:"3 validated LEI mappings ready for insertion",
+      { type:"assisted", num:1, title:"Retrieve current LEIs from GLEIF",
+        what:"En:ACT queries the GLEIF registry for the 3 affected counterparties and presents current LEI records for review. A member of the ref data team must verify the results before any changes are made.",
+        input:"broker_code_lei_ref_dict (current state) · 3 counterparty names",
+        output:"3 proposed LEI mappings surfaced for human review",
         detail:"Alderton Capital International → ALDCPT00MOCK00000111\nCastleford Bank Plc       → CSTLBK00MOCK00000222\nMeridian Securities & Co  → MERIDS00MOCK00000333" },
-      { type:"auto",   num:2, title:"Update reference dictionary",
-        what:"Insert 3 new LEI entries into broker_code_lei_ref_dict. Tag each with onboard date, source (GLEIF), and validation timestamp.",
-        input:"3 validated LEI mappings",
-        output:"broker_code_lei_ref_dict — 3 new entries committed",
-        detail:"Dict version: v1.4 → v1.5 · Changes logged to audit trail · Rollback snapshot created" },
-      { type:"auto",   num:3, title:"Re-derive field 1_14_counterparty_2",
-        what:"Re-run counterparty ID derivation pipeline for all 415 affected CURR records using the updated dict. Re-evaluate 1_15_identifier_source for 89 records where source code was also affected.",
+      { type:"human",   num:2, title:"Confirm LEI mappings and update ref data",
+        what:"Ref data team verifies the 3 proposed LEI entries against internal counterparty records. Once confirmed, manually insert the validated entries into broker_code_lei_ref_dict and tag with onboard date and GLEIF source.",
+        input:"3 proposed LEI mappings from Step 1",
+        output:"broker_code_lei_ref_dict updated — 3 entries added, version v1.4 → v1.5" },
+      { type:"human",   num:3, title:"Re-derive and spot-check corrected records",
+        what:"Operations team re-runs the counterparty ID derivation pipeline for the 415 affected records using the updated dict. Manually spot-check at least 10% of corrected records. Confirm 1_15_identifier_source is accurate for the 89 re-evaluated records.",
         input:"415 CURR trade records · updated broker_code_lei_ref_dict v1.5",
-        output:"415 records with corrected 1_14_counterparty_2 values · 89 records with corrected 1_15 source codes" },
-      { type:"human",  num:4, title:"Review & confirm before back-report",
-        what:"Spot-check a sample of corrected records. Confirm 1_15_identifier_source values are correct for the 89 re-evaluated records. Approve batch for submission to TRACC.",
+        output:"415 corrected records validated — ready for back-report" },
+      { type:"review",  num:4, title:"Compliance sign-off and back-report to TRACC",
+        what:"Compliance reviews the corrected batch and signs off. Upon approval, operations submits the 415 records back to TRACC. Control evidence attached to the audit log.",
         input:"Corrected batch of 415 records",
-        output:"Compliance sign-off → TRACC submission" },
+        output:"Compliance sign-off on record · TRACC submission complete" },
     ],
-    eo:{required:false, status:"Not required", colour:"#166534", bg:"#F0FDF4", border:"#BBF7D0",
-      note:"Confidence 89% — above mandatory E&O threshold. No filing required. Control evidence auto-generated and attached to audit log."},
+    eo:{required:true, status:"Pre-populated — review required", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O ref REF-2026-RC1 pre-populated by En:ACT. Requires Compliance review and sign-off before filing. 415 records affected — within 5% notional tolerance threshold."},
     fields:["1_14_counterparty_2","1_15_identifier_source"],
     cascade:"Low — collateral pipeline uses a separate lookup, unaffected" },
 
   { id:"P2", rcId:"RC2", severity:"High", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
-    priority:2, records:184, exposure:"$87M", confidence:78, eta:"~2h",
+    priority:2, records:184, exposure:"$87M", confidence:78, eta:"~2–3 days",
     rootCause:"Derivation logic for 1_17_financial_entity_indicator does not reference intragroup_flag in NovaTrade_OpenFX. All 184 affected trades carry intragroup_flag = TRUE in source but indicator is set blank or FALSE — confirmed absent from derivation rule spec.",
     steps:[
-      { type:"auto",   num:1, title:"Confirm rule gap in derivation spec",
-        what:"Parse derivation rule spec for field 1_17. Confirm intragroup_flag is not referenced in any conditional branch. Cross-check against source data to validate all 184 affected rows.",
+      { type:"assisted", num:1, title:"Review derivation rule gap analysis",
+        what:"En:ACT surfaces the confirmed gap in the derivation rule spec for field 1_17 — intragroup_flag branch is missing. The technical team must review the evidence and confirm the proposed rule change before any code changes are made.",
         input:"Derivation rule spec · NovaTrade_OpenFX feed (184 records)",
-        output:"Confirmed gap — intragroup_flag branch missing from rule · Evidence logged" },
-      { type:"auto",   num:2, title:"Insert intragroup derivation rule",
-        what:"Add conditional: IF NovaTrade_OpenFX.intragroup_flag = TRUE THEN 1_17_financial_entity_indicator = TRUE. Insert before existing NULL-check branch. Update rule spec document version.",
-        input:"Current rule spec v2.1",
-        output:"Updated rule spec v2.2 · Rule deployed to derivation engine" },
-      { type:"auto",   num:3, title:"Retroactively apply corrected rule",
-        what:"Re-run derivation for 184 records across Hartwell Lynch International (141 records) and Pemberton Chase Bank N.A. (43 records). Validate output — all should yield indicator = TRUE.",
+        output:"Gap confirmed by technical team · Rule change approved for development" },
+      { type:"human",   num:2, title:"Implement intragroup derivation rule",
+        what:"Development team adds the missing conditional to the derivation spec: IF NovaTrade_OpenFX.intragroup_flag = TRUE THEN 1_17_financial_entity_indicator = TRUE. Insert before existing NULL-check branch. Update rule spec version to v2.2 and deploy via standard change process.",
+        input:"Current rule spec v2.1 · Approved rule change from Step 1",
+        output:"Updated rule spec v2.2 deployed · Change ticket closed" },
+      { type:"human",   num:3, title:"Reprocess and validate 184 affected records",
+        what:"Operations team re-runs derivation for the 184 affected records across Hartwell Lynch International (141) and Pemberton Chase Bank N.A. (43). Validate that all outputs yield indicator = TRUE. Flag any exceptions for separate review.",
         input:"184 affected records · rule spec v2.2",
-        output:"184 records corrected · field 1_17 = TRUE for all · ready for submission" },
-      { type:"auto",   num:4, title:"File E&O and notify counterparties",
-        what:"Submit pre-populated E&O notification REF-2026-RC2 to FCA. Send secure notification to Hartwell Lynch International and Pemberton Chase Bank N.A. Back-report 184 corrected records to TRACC.",
-        input:"E&O form REF-2026-RC2 (pre-filled) · 184 corrected records",
+        output:"184 records reprocessed · exceptions (if any) flagged" },
+      { type:"review",  num:4, title:"File E&O, notify counterparties, back-report",
+        what:"Compliance reviews the corrected records and signs off on the E&O filing (REF-2026-RC2). Operations sends formal notification to Hartwell Lynch International and Pemberton Chase Bank N.A. Upon sign-off, back-report 184 corrected records to TRACC.",
+        input:"E&O form REF-2026-RC2 (pre-populated) · 184 corrected records",
         output:"E&O filed · Counterparties notified · 184 records back-reported to TRACC" },
     ],
-    eo:{required:true, status:"Pre-populated · Filed to FCA", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
-      note:"E&O ref REF-2026-RC2 auto-filed to FCA. Hartwell Lynch International and Pemberton Chase Bank N.A. notified at 09:14 via secure message. Tolerance: ≤5% of notional exposure."},
+    eo:{required:true, status:"Pre-populated — requires Compliance sign-off", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O ref REF-2026-RC2 pre-populated. Compliance must review and file. Hartwell Lynch International and Pemberton Chase Bank N.A. to be notified upon sign-off. Tolerance: ≤5% of notional exposure."},
     fields:["1_17_counterparty_2_financial_entity_indicator"],
-    cascade:"Medium — counterparty reconciliation scores affected until fix applied and back-reported" },
+    cascade:"Medium — counterparty reconciliation scores affected until fix back-reported" },
 
   { id:"P3", rcId:"RC3", severity:"Medium", regime:"CFTC P45 / MiFID II RTS22", assetClass:"FX Swap / Forward",
-    priority:3, records:4812, exposure:"$2.1B", confidence:74, eta:"~4h",
+    priority:3, records:4812, exposure:"$2.1B", confidence:74, eta:"~1 week",
     rootCause:"DFR → TRACC pipeline maps netnotional field 1-to-1 with no precision conversion step. Source carries 2dp; TRACC requires 6dp. All 4,812 failures share identical rounding pattern — onset estimated Q4 2025. Leg 2 notional (1_32) uses the same pipeline and is likely affected.",
     steps:[
-      { type:"auto",   num:1, title:"Confirm rounding signature across all records",
-        what:"Scan all 4,812 records for identical 2dp rounding pattern. Confirm single root cause. Run same scan on 1_32_notional_amt_leg_2 to assess Leg 2 scope.",
+      { type:"assisted", num:1, title:"Review precision gap analysis and Leg 2 scope",
+        what:"En:ACT presents the confirmed 2dp rounding pattern across all 4,812 records and flags the likely Leg 2 notional scope. Technical team must review the pipeline spec, confirm the root cause, and decide whether Leg 2 is in scope before any pipeline changes are made.",
         input:"4,812 affected INTR records · pipeline spec",
-        output:"Confirmed: all 4,812 share same 2dp pattern · Leg 2 scope TBC — flagged for separate fix" },
-      { type:"auto",   num:2, title:"Insert precision conversion step in pipeline",
-        what:"Add formatting step in DFR → TRACC pipeline immediately before field mapping: ROUND(netnotional, 6) → 1_31_notional_amt_leg_1. Deploy to staging, validate output against 10 sample records.",
+        output:"Root cause confirmed by technical team · Leg 2 scope decision documented" },
+      { type:"human",   num:2, title:"Implement precision conversion in DFR → TRACC pipeline",
+        what:"Development team adds ROUND(netnotional, 6) conversion step in the DFR → TRACC pipeline immediately before the field mapping for 1_31_notional_amt_leg_1. Deploy to staging and validate against a sample of 10+ records before production deployment.",
         input:"DFR → TRACC pipeline config · staging environment",
-        output:"Pipeline config v3.1 with 6dp conversion deployed · Staging validation passed" },
-      { type:"auto",   num:3, title:"Apply to 4,812 records — generate corrected batch",
-        what:"Run corrected pipeline across 4,812 records in isolated batch. Output corrected 1_31 values for review. Flag 312 records where corrected value diverges from counterparty submission by >0.01%.",
+        output:"Pipeline config v3.1 deployed to staging · Validation sign-off from technical lead" },
+      { type:"human",   num:3, title:"Generate corrected batch and tolerance report",
+        what:"Operations team runs the corrected pipeline across all 4,812 records in isolation. Produce corrected 1_31 values for review. Identify records where the corrected value diverges from counterparty submissions by more than 0.01% — these will require a specific Compliance decision.",
         input:"4,812 INTR records · pipeline config v3.1",
-        output:"4,812 corrected records · 312 flagged for tolerance review · batch held pending sign-off" },
-      { type:"review", num:4, title:"Compliance sign-off — valuation tolerance review",
-        what:"Review 312 records where corrected notional diverges from counterparty submission above 0.01% tolerance. Decide: notify counterparties proactively, adjust tolerance threshold, or proceed and accept reconciliation breaks. Approve batch for TRACC submission.",
-        input:"312 flagged records · counterparty submission data · E&O draft REF-2026-RC3",
-        output:"Sign-off decision → TRACC submission · E&O filed or held per Compliance decision" },
+        output:"Corrected batch of 4,812 records · tolerance exception report (est. ~312 records)" },
+      { type:"review",  num:4, title:"Compliance decision — tolerance exceptions and E&O",
+        what:"Compliance reviews the 312 records above the 0.01% valuation tolerance threshold. Must decide: notify counterparties proactively, adjust the tolerance threshold, or proceed and accept reconciliation breaks. Review E&O draft REF-2026-RC3 and decide on filing.",
+        input:"312 flagged records · E&O draft REF-2026-RC3 · counterparty submission data",
+        output:"Compliance decision documented · E&O filed or deferred · Back-report authorised" },
     ],
-    eo:{required:true, status:"Drafted · Awaiting Compliance sign-off", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
-      note:"E&O draft REF-2026-RC3 prepared. Filing held — 312 records exceed 0.01% valuation tolerance vs counterparty data. Estimated resubmission: 10 business days from Compliance sign-off."},
+    eo:{required:true, status:"Drafted — Compliance decision required", colour:"#92400E", bg:"#FFF7ED", border:"#FDE68A",
+      note:"E&O draft REF-2026-RC3 prepared by En:ACT. Filing requires Compliance decision — 312 records exceed 0.01% valuation tolerance vs counterparty data. VBK AG, Castleford Bank Plc, and Rheinfeld Bank AG may require notification."},
     fields:["1_31_notional_amt_leg_1","1_32_notional_amt_leg_2"],
     cascade:"Low–medium — valuation tolerance breach possible on 312 records against counterparty submissions" },
 ];
 
 const INITIAL_CHAT=[
-  { id:"m0", role:"agent", ts:"09:14", text:"I've analysed 3 root causes affecting 5,411 records and generated a prioritised remediation plan.\n\nRC1 (LEI lookup failure, 415 records) and RC2 (intragroup classification, 184 records) are safe to submit after fixes are applied. E&O has been pre-filed for RC2 and counterparties notified.\n\nRC3 (precision drift, 4,812 records) requires Compliance sign-off before filing — 312 records may breach valuation tolerance. I've drafted the E&O form and flagged it for review.\n\nReview each plan card below, ask me to adjust anything, then approve all three to proceed to simulation." },
-  { id:"m1", role:"agent", ts:"09:14", text:"I can adjust priorities, modify E&O tolerance thresholds, exclude specific counterparties, split the scope of any fix, or explain any step in more detail." },
+  { id:"m0", role:"agent", ts:"09:14", text:"Simulation is complete. I've prepared remediation plans for 3 root causes affecting 5,411 records.\n\nAll three plans require human action — no changes will be applied automatically. I've pre-populated E&O forms for RC1, RC2, and RC3, all of which require Compliance sign-off before filing.\n\nRC3 has a specific Compliance decision point: 312 records exceed the 0.01% valuation tolerance threshold and may require counterparty notification.\n\nReview each plan below, ask me to adjust scope or thresholds, then approve all three when ready." },
+  { id:"m1", role:"agent", ts:"09:14", text:"I can adjust the scope of any fix, modify E&O tolerance thresholds, exclude specific counterparties, or help draft the counterparty notification for RC3." },
 ];
 
 const SUGGESTIONS=[
@@ -1591,9 +1590,9 @@ const AGENT_REPLIES={
 
 /* ── Step type config ── */
 const STEP_TYPE={
-  auto:   {label:"En:ACT automated", bg:"#EBF2FB", fg:C.blue,   dot:C.blue,   icon:"✦"},
-  human:  {label:"Human action",     bg:"#FFF7ED", fg:"#B45309", dot:"#B45309", icon:"👤"},
-  review: {label:"Compliance sign-off", bg:"#FEF2F2", fg:C.red,  dot:C.red,    icon:"⚠"},
+  human:  {label:"Human action",       bg:"#FFF7ED", fg:"#B45309", dot:"#B45309", icon:"👤"},
+  review: {label:"Compliance sign-off",bg:"#FEF2F2", fg:C.red,    dot:C.red,     icon:"⚠"},
+  assisted:{label:"En:ACT assisted",   bg:"#EBF2FB", fg:C.blue,   dot:C.blue,    icon:"✦"},
 };
 
 /* ── Individual plan card with vertical stepper ── */
@@ -1675,7 +1674,7 @@ const PlanCard=({p,isApp,onToggleApprove})=>{
       <div style={{padding:"14px 18px 10px"}}>
         <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",
           letterSpacing:"0.08em",marginBottom:12}}>
-          Execution plan · {p.steps.length} steps · {p.steps.filter(s=>s.type==="auto").length} automated
+          Execution plan · {p.steps.length} steps · {p.steps.filter(s=>s.type==="human"||s.type==="review").length} human · {p.steps.filter(s=>s.type==="assisted").length} En:ACT assisted
         </div>
 
         {p.steps.map((s,i)=>{
@@ -3164,11 +3163,11 @@ const SubmittedScreen=({jira,onRestart})=>{
   const [tick,setTick]=useState(false);
   useEffect(()=>{setTimeout(()=>setTick(true),120);},[]);
   const steps=[
-    {done:true,  label:"Fixes applied & back-reported",  detail:"691 records resubmitted · 96% first-time-right"},
-    {done:true,  label:"E&O notification generated",     detail:"Pre-filled by En>ACT · PDF draft saved"},
+    {done:true,  label:"Remediation pack assembled",      detail:"691 records ready for back-report · all three plans reviewed"},
+    {done:true,  label:"E&O notification pre-filled",   detail:"En:ACT prepared draft · requires Compliance sign-off before filing"},
     {done:true,  label:"Compliance ticket raised",       detail:`${jira?.id||"RR-2042"} · Assigned to ${jira?.assignee||"Sarah Chen · Compliance"}`},
-    {done:false, label:"Compliance review",              detail:"Est. 5–10 business days · FX-RC3 precision fix"},
-    {done:false, label:"FX-RC3 back-report",             detail:"Pending sign-off · 4,812 records"},
+    {done:false, label:"Compliance review & sign-off",  detail:"Est. 5–10 business days · FX-RC3 valuation tolerance decision"},
+    {done:false, label:"Back-report to TRACC",           detail:"Pending Compliance sign-off · 691 + 4,812 records"},
   ];
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
@@ -3206,10 +3205,10 @@ const SubmittedScreen=({jira,onRestart})=>{
         {/* ── KPI strip ── */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
           {[
-            {v:"691",   l:"records back-reported", c:C.green,  bg:C.greenT},
-            {v:"3",     l:"fixes applied",          c:C.ink,    bg:"#fff"},
-            {v:"97.3%", l:"projected accuracy",     c:C.blue,   bg:C.blueT2},
-            {v:"1",     l:"pending Compliance",     c:C.amber,  bg:C.amberT},
+            {v:"691",   l:"records ready for back-report", c:C.green,  bg:C.greenT},
+            {v:"3",     l:"plans ready for approval",     c:C.ink,    bg:"#fff"},
+            {v:"97.3%", l:"projected accuracy",           c:C.blue,   bg:C.blueT2},
+            {v:"1",     l:"pending Compliance sign-off",  c:C.amber,  bg:C.amberT},
           ].map(({v,l,c,bg},i)=>(
             <div key={i} style={{padding:"16px 14px",background:bg,border:`1px solid ${C.line}`,borderRadius:10,textAlign:"center",
               transition:`opacity 300ms ease ${120+i*60}ms, transform 300ms ease ${120+i*60}ms`,
@@ -3292,13 +3291,13 @@ const DoneScreen=({onRestart})=>{
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
           boxShadow:`0 0 0 8px ${C.green}12`,animation:"aiPulse 3s ease-in-out 1"}}>✓</div>
         <div style={{flex:1}}>
-          <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Reporting assurance complete — fixes applied &amp; ready for back-reporting</div>
+          <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Reporting assurance complete — remediation plans ready for implementation</div>
           <div style={{fontSize:12,color:C.ink2,marginTop:3}}>Whale Capital · MiFID II / CFTC P45 · DFR Reporting Platform · 13 May 2026</div>
         </div>
         {/* KPI strip */}
         <div style={{display:"flex",gap:2,flexShrink:0}}>
           {[
-            {v:"691",l:"records\nback-reported",c:C.green,bg:C.greenT},
+            {v:"691",l:"records\nready to back-report",c:C.green,bg:C.greenT},
             {v:"5,411",l:"total records\nreviewed",c:C.ink,bg:C.muted},
             {v:"93%",l:"avg first-\ntime-right",c:C.blue,bg:C.blueT2},
             {v:"1",l:"pending\nCompliance",c:C.amber,bg:C.amberT},
@@ -3321,8 +3320,8 @@ const DoneScreen=({onRestart})=>{
           {/* applied */}
           <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.line}`,background:C.greenT,flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:12,fontWeight:700,color:C.green}}>✓ Auto-applied</span>
-              <Pill bg="#fff" fg={C.green}>3 fixes</Pill>
+              <span style={{fontSize:12,fontWeight:700,color:C.green}}>✓ Plans reviewed &amp; approved</span>
+              <Pill bg="#fff" fg={C.green}>3 plans</Pill>
               <Pill bg="#fff" fg={C.ink2}>691 records</Pill>
             </div>
           </div>
@@ -3537,7 +3536,7 @@ const DoneScreen=({onRestart})=>{
                   <EoField label="2.4 Root cause" agent
                     value="(1) broker_lei_ref_dict not updated post 3 new onboardings after 14 Jan 2026 — CLIENT_ID → PartyFile.TradePartyValue lookup failing. (2) 1_17 derivation references TradePartyValue LEI only; intragroup_flag not consulted — confirmed absent in lineage mapping. (3) DFR Formatting step maps Original_TargetAmount 1-1 to 1_31 with no precision expansion — 2dp transmitted where 6dp required."/>
                   <EoField label="2.5 How discovered" agent
-                    value="Detected by En>ACT Root Cause Analysis Agent on 09 May 2026 via automated lineage analysis. Validated by DFR lineage mapping audit."/>
+                    value="Detected by En:ACT Root Cause Analysis Agent on 09 May 2026 via lineage analysis. Validated by DFR lineage mapping audit and reviewed by the reporting team."/>
                   <EoField label="2.6 Period for which issue occurred" agent
                     value="Issues 1 &amp; 2: estimated onset 14 Jan 2026 (last dict refresh); detected 09 May 2026. Issue 3: onset under review — pipeline unchanged for extended period; back-reporting window TBC pending Compliance sign-off."/>
                   <EoField label="2.7 Total reports impacted" agent
@@ -3547,7 +3546,7 @@ const DoneScreen=({onRestart})=>{
                 <EoSection num="3" title="Remediation &amp; Back-Reporting" open>
                   <EoField label="3.1 Oversight responsibility" required hint="Name the individual or committee with oversight"/>
                   <EoField label="3.2 Actions taken to remediate" agent
-                    value="En>ACT auto-applied 3 fixes: (1) broker_lei_ref_dict updated — 415 records re-derived and back-reported; (2) intragroup_flag → 1_17 derivation rule added — 184 records corrected; (3) DFR recon feed key rebuilt for 92 cascade records. Outstanding: FX-RC3 precision fix pending Compliance sign-off (312-record valuation tolerance risk). Assessment of 1_31_notional_amt_leg_2 outstanding."/>
+                    value="3 remediation plans prepared by En:ACT and reviewed by the reporting team: (1) broker_lei_ref_dict update — 415 records to be re-derived and back-reported, pending ref data team action; (2) intragroup_flag → 1_17 derivation rule addition — 184 records, pending ops re-processing; (3) DFR recon feed key rebuild for 92 cascade records, pending ops confirmation. Outstanding: FX-RC3 precision fix pending Compliance sign-off (312-record valuation tolerance risk). Assessment of 1_31_notional_amt_leg_2 outstanding."/>
                   <EoField label="3.3 Total transactions to back-report" agent
                     value="691 back-reported (readiness 97.3%). 4,812 pending Compliance sign-off (FX-RC3, est. 10 business days from approval)."/>
                   <EoField label="3.4 Systems &amp; controls weaknesses" required hint="Detail weaknesses identified"/>
