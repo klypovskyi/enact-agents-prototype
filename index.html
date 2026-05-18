@@ -344,24 +344,22 @@ const Clock=()=>{
 // ── Tracker (3-step) ──────────────────────────────────────────────────────────
 const Tracker=({stage})=>{
   const steps=[
-    {id:"root", label:"Root Cause"},
-    {id:"sim",  label:"Simulation"},
-    {id:"plan", label:"Rem Plan"},
+    {id:"root",    label:"Root Cause"},
+    {id:"plan",    label:"Fix Plan"},
+    {id:"signoff", label:"Sign-off"},
   ];
   const stateOf=id=>{
     if(stage==="macro")        return id==="root"?"active":"pending";
     if(stage==="running:root") return id==="root"?"running":"pending";
-    if(stage==="review:root")  return id==="root"?"done":id==="sim"?"active":"pending";
-    if(stage==="remediation")  return id==="root"?"done":id==="sim"?"active":"pending";
-    if(stage==="plan")         return id==="plan"?"active":"done";
+    if(stage==="plan")         return id==="root"?"done":id==="plan"?"active":"pending";
+    if(stage==="confirm")      return id==="signoff"?"active":"done";
     if(stage==="done")         return "done";
     return "pending";
   };
   const colOf=id=>{
     const st=stateOf(id);
     if(st==="done") return C.green;
-    if(st==="running"||st==="active") return id==="root"?A.root.colour:id==="sim"?C.blue:A.rem.colour;
-    if(st==="review") return A.root.colour;
+    if(st==="running"||st==="active") return id==="root"?A.root.colour:id==="plan"?A.rem.colour:C.green;
     return C.line2;
   };
   return(
@@ -2799,6 +2797,480 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
   );
 };
 
+// ── Plan + simulation mapping ─────────────────────────────────────────────────
+const planToSim={P1:"FX-RC1",P2:"FX-RC2",P3:"FX-RC3"};
+
+const INITIAL_CHAT_PLAN=[
+  { id:"m0", role:"agent", ts:"09:14",
+    text:"Root cause analysis is complete. I've prepared remediation plans for 3 issues affecting 5,411 records.\n\nRun the simulation for each fix to see the projected outcome before committing. You can simulate all at once or one by one.\n\nAll changes are human-authorised — nothing will be applied until you confirm." },
+  { id:"m1", role:"agent", ts:"09:14",
+    text:"I can adjust the scope of any fix, explain a finding, or help draft the counterparty notification for RC3. Ask away." },
+];
+
+// ── PlanAndSimScreen ──────────────────────────────────────────────────────────
+const PlanAndSimScreen=({cascade,onConfirm,onBack,onCancel})=>{
+  const [simming,setSimming]=useState(new Set());
+  const [results,setResults]=useState({});
+  const [approved,setApproved]=useState({});
+  const [msgs,setMsgs]=useState(INITIAL_CHAT_PLAN);
+  const [input,setInput]=useState("");
+  const [typing,setTyping]=useState(false);
+  const chatRef=React.useRef(null);
+
+  const approvedCount=Object.values(approved).filter(Boolean).length;
+  const allApproved=approvedCount===PLAN_ITEMS.length;
+
+  React.useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,typing]);
+
+  const simulate=(planId)=>{
+    const fixId=planToSim[planId];
+    if(simming.has(planId)||results[planId])return;
+    setSimming(s=>new Set([...s,planId]));
+    setTimeout(()=>{
+      const map=cascade?SIM_RESULTS_CASCADE:SIM_RESULTS_CLEAN;
+      const res=map[fixId]||{status:"safe",ftr:90,readiness:"+5pts",detail:"No issues found."};
+      setSimming(s=>{const n=new Set(s);n.delete(planId);return n;});
+      setResults(r=>({...r,[planId]:res}));
+    },1400);
+  };
+
+  const canSimAll=PLAN_ITEMS.some(p=>!results[p.id]&&!simming.has(p.id));
+  const simulateAll=()=>{PLAN_ITEMS.forEach(p=>{if(!results[p.id]&&!simming.has(p.id))simulate(p.id);});};
+
+  const sendMsg=text=>{
+    if(!text.trim())return;
+    const userMsg={id:"u"+Date.now(),role:"user",ts:new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),text:text.trim()};
+    setMsgs(m=>[...m,userMsg]);setInput("");setTyping(true);
+    setTimeout(()=>{
+      const reply=AGENT_REPLIES[text.trim()]||"I've noted that. Let me update the plan and check the downstream impact — give me a moment to recalculate the affected records and revise E&O scope if needed.";
+      setTyping(false);
+      setMsgs(m=>[...m,{id:"a"+Date.now(),role:"agent",ts:new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),text:reply}]);
+    },1200+Math.random()*600);
+  };
+
+  const simColour=s=>s==="safe"||s==="cascade-resolved"?C.green:s==="human"?C.amber:s==="cascade"?C.red:C.blue;
+  const simBg    =s=>s==="safe"||s==="cascade-resolved"?C.greenBg:s==="human"?C.amberBg:s==="cascade"?C.redBg:C.blueT2;
+  const simLabel =s=>s==="safe"?"✓ Safe to apply":s==="human"?"👤 Needs human":s==="cascade"?"⚠ Cascade detected":"✓ Cascade resolved";
+
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+
+      {/* ── Header ── */}
+      <div style={{padding:"16px 32px",borderBottom:`1px solid ${C.line}`,flexShrink:0,
+        display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff"}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:700,color:C.ink,lineHeight:1.2}}>Remediation plan &amp; simulation</div>
+          <div style={{fontSize:12,color:C.ink3,marginTop:3}}>
+            3 fix plans · 5,411 records · simulate each fix to see projected outcomes
+            {approvedCount>0&&<span style={{marginLeft:8,color:C.green,fontWeight:600}}>· {approvedCount}/{PLAN_ITEMS.length} approved</span>}
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={onBack}
+            style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${C.line}`,
+              background:"#fff",color:C.ink2,fontSize:13,fontWeight:500,cursor:"pointer"}}>
+            ← Back to issue map
+          </button>
+          {canSimAll&&(
+            <Btn variant="soft" size="md" onClick={simulateAll}>
+              <AIStar size={11} colour={C.blue}/>Simulate all →
+            </Btn>
+          )}
+          <button onClick={()=>allApproved&&onConfirm()} disabled={!allApproved}
+            style={{padding:"9px 22px",borderRadius:8,border:"none",
+              background:allApproved?C.blue:"#C8D4E0",color:"#fff",
+              fontSize:13,fontWeight:600,cursor:allApproved?"pointer":"not-allowed",
+              boxShadow:allApproved?`0 2px 16px ${C.blue}55`:"none",
+              transition:"all .2s"}}>
+            Agree &amp; confirm plan →
+          </button>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
+
+        {/* LEFT — plan cards with inline simulation */}
+        <div style={{flex:"0 0 520px",minWidth:0,overflowY:"auto",
+          borderRight:`1px solid ${C.line}`,background:"#F7F8FA",padding:"16px"}}>
+
+          {/* KPI strip */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
+            {[
+              {label:"Root causes",value:"3",   col:C.ink},
+              {label:"Records",    value:"5,411",col:C.red},
+              {label:"E&O filings",value:"2",   col:C.amber},
+              {label:"Approved",   value:`${approvedCount}/3`,col:allApproved?C.green:C.blue},
+            ].map((t,i)=>(
+              <div key={i} style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:10,
+                padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:18,fontWeight:800,color:t.col,lineHeight:1}}>{t.value}</div>
+                <div style={{fontSize:9,fontWeight:600,color:C.ink3,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{t.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Plan cards */}
+          {PLAN_ITEMS.map((p,idx)=>{
+            const rc=ROOT_CAUSES.find(r=>r.id===p.rcId);
+            const res=results[p.id];
+            const isSim=simming.has(p.id);
+            const isApp=!!approved[p.id];
+            const sevCol=p.severity==="High"?C.red:p.severity==="Medium"?C.amber:C.green;
+            const sevBg =p.severity==="High"?C.redBg:p.severity==="Medium"?C.amberT:C.greenBg;
+            return(
+              <div key={p.id} style={{background:"#fff",
+                border:`1px solid ${isApp?C.green:res?simColour(res.status)+"44":C.line}`,
+                borderRadius:10,marginBottom:10,overflow:"hidden",
+                outline:isApp?`2px solid ${C.green}33`:"none",outlineOffset:1,
+                transition:"border-color 140ms,outline 140ms"}}>
+
+                {/* severity strip */}
+                <div style={{height:3,background:isApp?C.green:res?simColour(res.status):sevCol,borderRadius:"9px 9px 0 0"}}/>
+
+                <div style={{padding:"14px 16px"}}>
+
+                  {/* header row */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                    <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,
+                      background:sevBg,color:sevCol,textTransform:"uppercase",letterSpacing:"0.04em"}}>{p.id}</span>
+                    <span style={{fontSize:10,fontWeight:600,color:sevCol}}>{p.severity}</span>
+                    <span style={{fontSize:10,color:C.ink3}}>·</span>
+                    <span style={{fontSize:10,color:C.ink2,fontWeight:600}}>{p.records.toLocaleString()} records</span>
+                    <span style={{fontSize:10,color:C.ink3}}>·</span>
+                    <span style={{fontSize:10,color:C.ink3}}>{p.eta}</span>
+                    <div style={{flex:1}}/>
+                    {isApp&&<Pill bg={C.greenBg} fg={C.green} style={{fontSize:9}}>✓ Approved</Pill>}
+                    {res&&!isApp&&<Pill bg={simBg(res.status)} fg={simColour(res.status)} style={{fontSize:9}}>{simLabel(res.status)}</Pill>}
+                  </div>
+
+                  {/* title */}
+                  <div style={{fontSize:13,fontWeight:700,color:C.ink,marginBottom:8,lineHeight:1.3}}>{rc?.title}</div>
+
+                  {/* lineage */}
+                  {rc?.chain&&(
+                    <div style={{marginBottom:10}}>
+                      <div style={{fontSize:8,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                        letterSpacing:"0.07em",marginBottom:4}}>Data lineage · break point</div>
+                      <CompactLineage chain={rc.chain} breakAt={rc.breakAt}/>
+                    </div>
+                  )}
+
+                  {/* sim CTA */}
+                  {!res&&!isSim&&(
+                    <button onClick={()=>simulate(p.id)}
+                      style={{width:"100%",padding:"9px",borderRadius:7,fontSize:12,fontWeight:600,
+                        background:C.blueT2,color:C.blue,border:`1.5px solid ${C.blueT}`,
+                        cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+                        transition:"all 120ms"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background=C.blue;e.currentTarget.style.color="#fff";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=C.blueT2;e.currentTarget.style.color=C.blue;}}>
+                      <AIStar size={11} colour="inherit"/>Run simulation →
+                    </button>
+                  )}
+
+                  {/* simulating indicator */}
+                  {isSim&&(
+                    <div style={{padding:"10px",borderRadius:7,background:C.blueT2,border:`1px solid ${C.blueT}`,
+                      display:"flex",alignItems:"center",gap:8,fontSize:11,color:C.blue,fontWeight:600}}>
+                      <AIStar size={13} colour={C.blue} spin/>Simulating fix against your data…
+                    </div>
+                  )}
+
+                  {/* simulation result */}
+                  {res&&(
+                    <div style={{borderRadius:7,background:simBg(res.status),
+                      border:`1px solid ${simColour(res.status)}22`,
+                      padding:"10px 12px",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{padding:"2px 9px",borderRadius:999,fontSize:9,fontWeight:700,
+                          background:simColour(res.status)+"22",color:simColour(res.status)}}>{simLabel(res.status)}</span>
+                        <span style={{fontSize:11,fontWeight:700,color:simColour(res.status)}}>FTR {res.ftr}%</span>
+                        {res.readiness&&res.readiness!=="—"&&(
+                          <span style={{fontSize:10,color:C.green,fontWeight:700}}>Readiness {res.readiness}</span>
+                        )}
+                      </div>
+                      <div style={{fontSize:11,color:C.ink2,lineHeight:1.55}}>{res.detail}</div>
+                      {res.reason&&(
+                        <div style={{marginTop:6,padding:"7px 9px",background:"rgba(255,255,255,0.6)",
+                          borderRadius:5,borderLeft:`3px solid ${C.amber}`,
+                          fontSize:11,color:C.ink,lineHeight:1.5}}>
+                          <span style={{fontWeight:700,color:C.amber}}>Why: </span>{res.reason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* approve toggle */}
+                  {res&&(
+                    <button onClick={()=>setApproved(a=>({...a,[p.id]:!a[p.id]}))}
+                      style={{width:"100%",padding:"9px",borderRadius:7,fontSize:12,fontWeight:600,
+                        cursor:"pointer",border:`1.5px solid ${isApp?C.green:C.line2}`,
+                        background:isApp?C.greenT:"#fff",color:isApp?C.green:C.ink2,
+                        display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                        transition:"all 140ms"}}>
+                      {isApp?"✓ Approved — click to revoke":"Approve this plan"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div style={{height:8}}/>
+        </div>
+
+        {/* RIGHT — AI chat (same as plan screen) */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+
+          {/* chat header */}
+          <div style={{flexShrink:0,padding:"12px 24px 10px",borderBottom:`1px solid ${C.line}`,
+            background:"#fff",display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:30,height:30,borderRadius:10,flexShrink:0,
+              background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <AIStar size={13} colour="#fff"/>
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.ink}}>En:ACT agent</div>
+              <div style={{fontSize:10,color:C.ink3}}>Ask questions or request changes to the plan</div>
+            </div>
+          </div>
+
+          {/* messages */}
+          <div ref={chatRef}
+            style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,background:"#FAFBFC"}}>
+            {msgs.map(m=>(
+              <div key={m.id} style={{display:"flex",alignItems:"flex-start",gap:10,
+                flexDirection:m.role==="user"?"row-reverse":"row"}}>
+                {m.role==="agent"&&(
+                  <div style={{width:30,height:30,borderRadius:10,flexShrink:0,marginTop:1,
+                    background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
+                    display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <AIStar size={12} colour="#fff"/>
+                  </div>
+                )}
+                <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:14,fontSize:12,
+                  lineHeight:1.65,whiteSpace:"pre-wrap",
+                  background:m.role==="user"?C.blue:"#fff",
+                  color:m.role==="user"?"#fff":C.ink,
+                  border:m.role==="user"?"none":`1px solid ${C.line}`,
+                  borderTopLeftRadius:m.role==="agent"?4:14,
+                  borderTopRightRadius:m.role==="user"?4:14,
+                  boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                  {m.text}
+                  <div style={{fontSize:9,marginTop:5,color:m.role==="user"?"rgba(255,255,255,.5)":C.ink3}}>{m.ts}</div>
+                </div>
+              </div>
+            ))}
+            {typing&&(
+              <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                <div style={{width:30,height:30,borderRadius:10,flexShrink:0,
+                  background:`linear-gradient(135deg,${C.blue},#5ea0df)`,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <AIStar size={12} colour="#fff" spin/>
+                </div>
+                <div style={{padding:"12px 16px",borderRadius:14,borderTopLeftRadius:4,
+                  background:"#fff",border:`1px solid ${C.line}`,
+                  display:"flex",alignItems:"center",gap:5}}>
+                  {[0,.2,.4].map(d=>(
+                    <span key={d} style={{width:6,height:6,borderRadius:99,background:C.blue,display:"block",
+                      animation:`aiPulse 1.2s ease ${d}s infinite`}}/>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* suggestion chips */}
+          <div style={{flexShrink:0,padding:"8px 20px 6px",borderTop:`1px solid ${C.line}`,
+            background:"#fff",display:"flex",gap:5,flexWrap:"wrap"}}>
+            {SUGGESTIONS.map(s=>(
+              <button key={s} onClick={()=>sendMsg(s)}
+                style={{padding:"4px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",
+                  background:"#F5F6F8",border:`1px solid ${C.line}`,color:C.blue,transition:"all .12s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=C.blueT2;e.currentTarget.style.borderColor=C.blue;}}
+                onMouseLeave={e=>{e.currentTarget.style.background="#F5F6F8";e.currentTarget.style.borderColor=C.line;}}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* input */}
+          <div style={{flexShrink:0,padding:"10px 20px 16px",background:"#fff",borderTop:`1px solid ${C.line}`}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",
+              border:`1.5px solid ${C.line}`,borderRadius:12,padding:"8px 10px 8px 14px",
+              background:"#FAFBFC",transition:"border-color .15s"}}
+              onFocusCapture={e=>e.currentTarget.style.borderColor=C.blue}
+              onBlurCapture={e=>e.currentTarget.style.borderColor=C.line}>
+              <input value={input} onChange={e=>setInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),sendMsg(input))}
+                placeholder="Ask En:ACT to adjust priorities, modify E&O thresholds, or explain a finding…"
+                style={{flex:1,border:"none",background:"transparent",outline:"none",
+                  fontSize:12,color:C.ink,fontFamily:"inherit"}}/>
+              <button onClick={()=>sendMsg(input)} disabled={!input.trim()}
+                style={{width:32,height:32,borderRadius:9,border:"none",
+                  background:input.trim()?C.blue:"#E5E9EE",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  cursor:input.trim()?"pointer":"default",transition:"all .15s",flexShrink:0}}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 7h10M8 3l4 4-4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            {!allApproved&&(
+              <div style={{fontSize:10,color:C.ink3,marginTop:6,textAlign:"center"}}>
+                Simulate and approve all 3 fix plans to confirm
+              </div>
+            )}
+          </div>
+
+        </div>{/* /chat */}
+      </div>{/* /body */}
+    </div>
+  );
+};
+
+// ── ConfirmScreen ─────────────────────────────────────────────────────────────
+const ConfirmScreen=({onSubmit,onBack,onCancel})=>{
+  const [tick,setTick]=useState(false);
+  useEffect(()=>{setTimeout(()=>setTick(true),100);},[]);
+
+  return(
+    <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:C.surface,overflow:"hidden"}}>
+
+      {/* ── Header ── */}
+      <div style={{padding:"20px 36px",borderBottom:`1px solid ${C.line}`,background:"#fff",flexShrink:0,
+        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:700,color:C.ink,lineHeight:1.2}}>Remediation plan agreed</div>
+          <div style={{fontSize:12,color:C.ink3,marginTop:3}}>3 plans confirmed · 5,411 records · E&amp;O notifications pre-populated</div>
+        </div>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <button onClick={onBack}
+            style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${C.line}`,
+              background:"#fff",color:C.ink2,fontSize:13,fontWeight:500,cursor:"pointer"}}>
+            ← Review plan
+          </button>
+          <button onClick={onSubmit}
+            style={{padding:"9px 24px",borderRadius:8,border:"none",
+              background:C.blue,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",
+              boxShadow:tick?`0 2px 16px ${C.blue}55`:"none",transition:"all .2s"}}>
+            Proceed to E&amp;O &amp; Jira →
+          </button>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div style={{flex:1,overflowY:"auto",padding:"28px 40px",display:"flex",flexDirection:"column",gap:20}}>
+
+        {/* KPI strip */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+          {[
+            {v:"3",     l:"plans agreed",          c:C.green, bg:C.greenT},
+            {v:"5,411", l:"records to remediate",  c:C.red,   bg:C.redBg},
+            {v:"97.3%", l:"projected accuracy",    c:C.blue,  bg:C.blueT2},
+            {v:"1",     l:"pending Compliance",    c:C.amber, bg:C.amberT},
+          ].map(({v,l,c,bg},i)=>(
+            <div key={i} style={{padding:"16px",background:bg,border:`1px solid ${C.line}`,borderRadius:10,textAlign:"center",
+              opacity:tick?1:0,transform:tick?"translateY(0)":"translateY(8px)",
+              transition:`opacity 280ms ease ${i*60}ms, transform 280ms ease ${i*60}ms`}}>
+              <div style={{fontSize:28,fontWeight:800,color:c,lineHeight:1,letterSpacing:"-0.02em"}}>{v}</div>
+              <div style={{fontSize:11,color:C.ink2,marginTop:5}}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Plan summary list */}
+        <div style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:12,overflow:"hidden"}}>
+          <div style={{padding:"13px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted,
+            display:"flex",alignItems:"center",gap:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.ink}}>Agreed plans</div>
+            <Pill bg={C.greenBg} fg={C.green}>3 approved</Pill>
+            <div style={{flex:1}}/>
+            <span style={{fontSize:10,color:C.ink3}}>Ref data · Dev team · Compliance</span>
+          </div>
+          {PLAN_ITEMS.map((p,i)=>{
+            const rc=ROOT_CAUSES.find(r=>r.id===p.rcId);
+            const sevCol=p.severity==="High"?C.red:p.severity==="Medium"?C.amber:C.green;
+            const sevBg =p.severity==="High"?C.redBg:p.severity==="Medium"?C.amberT:C.greenBg;
+            const isBlocked=p.id==="P3";
+            const owner=p.id==="P1"?"Ref data team":p.id==="P2"?"Dev team":"Compliance";
+            return(
+              <div key={p.id} style={{padding:"16px 20px",
+                borderBottom:i<PLAN_ITEMS.length-1?`1px solid ${C.line}`:"none",
+                background:i%2===0?"#fff":"#FAFBFC"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                  <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,
+                    background:sevBg,color:sevCol,textTransform:"uppercase",letterSpacing:"0.04em"}}>{p.id}</span>
+                  <span style={{fontSize:10,fontWeight:600,color:sevCol}}>{p.severity}</span>
+                  <span style={{fontSize:10,color:C.ink3}}>·</span>
+                  <span style={{fontSize:10,color:C.ink2,fontWeight:600}}>{p.records.toLocaleString()} records</span>
+                  <span style={{fontSize:10,color:C.ink3}}>·</span>
+                  <span style={{fontSize:10,color:C.ink3}}>{p.eta}</span>
+                  <div style={{flex:1}}/>
+                  <Pill bg={C.muted} fg={C.ink3} style={{fontSize:9}}>Owner: {owner}</Pill>
+                  {isBlocked
+                    ? <Pill bg={C.amberBg} fg={C.amber} style={{fontSize:9}}>⚠ Compliance sign-off</Pill>
+                    : <Pill bg={C.greenBg} fg={C.green} style={{fontSize:9}}>✓ Ready to back-report</Pill>}
+                </div>
+                <div style={{fontSize:13,fontWeight:700,color:C.ink,marginBottom:8,lineHeight:1.3}}>{rc?.title}</div>
+                {rc?.chain&&(
+                  <div style={{marginBottom:8}}>
+                    <div style={{fontSize:8,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                      letterSpacing:"0.07em",marginBottom:4}}>Data lineage · break point</div>
+                    <CompactLineage chain={rc.chain} breakAt={rc.breakAt}/>
+                  </div>
+                )}
+                <div style={{fontSize:11,color:C.ink2,lineHeight:1.55,
+                  padding:"8px 10px",background:"#F8FAFC",borderRadius:6,border:`1px solid ${C.line}`}}>
+                  {p.rootCause}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* E&O summary */}
+        <div style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:12,padding:"16px 20px"}}>
+          <div style={{fontSize:12,fontWeight:700,marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+            <span>E&amp;O notifications</span>
+            <Pill bg={C.amberBg} fg={C.amber}>3 pre-populated by En:ACT</Pill>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {[
+              {ref:"REF-2026-RC1",text:"415 records · CP2 LEI lookup · Awaiting Compliance review",   warn:false},
+              {ref:"REF-2026-RC2",text:"184 records · Financial entity indicator · Awaiting review",   warn:false},
+              {ref:"REF-2026-RC3",text:"4,812 records · Notional precision · 312 tolerance exceptions — Compliance decision required",warn:true},
+            ].map(({ref,text,warn})=>(
+              <div key={ref} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
+                background:warn?C.amberT:C.greenT,borderRadius:7,
+                border:`1px solid ${warn?C.amber+"33":C.green+"33"}`}}>
+                <span style={{fontSize:11,fontWeight:700,color:C.blue,flexShrink:0}}>{ref}</span>
+                <span style={{fontSize:11,color:C.ink2,flex:1}}>{text}</span>
+                <Pill bg={warn?C.amberBg:C.greenBg} fg={warn?C.amber:C.green} style={{fontSize:9}}>
+                  {warn?"⚠ Action needed":"Pre-filled"}
+                </Pill>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* What happens next callout */}
+        <div style={{padding:"14px 18px",background:C.blueT2,border:`1px solid ${C.blueT}`,borderRadius:10,
+          display:"flex",alignItems:"flex-start",gap:10}}>
+          <AIStar size={15} colour={C.blue} style={{flexShrink:0,marginTop:1}}/>
+          <div style={{fontSize:12,color:C.ink,lineHeight:1.65}}>
+            <span style={{fontWeight:700,color:C.blue}}>Next: </span>
+            Review the pre-filled E&amp;O notification and raise a Jira compliance ticket for RC3.
+            Once both are complete, submit the remediation pack to finalise.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 // ── Combined Remediation + Simulation screen ──────────────────────────────────
 const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
   const [fixes,setFixes]=useState(INITIAL_FIXES);
@@ -3708,23 +4180,22 @@ function App(){
 
   const runRootCause=()=>{
     setStage("running:root");
-    setTimeout(()=>setStage("remediation"), A.root.duration);
+    setTimeout(()=>setStage("plan"), A.root.duration);
   };
 
   // active sidebar item per stage
-  const sidebarActive=stage=>{
-    if(stage==="macro")                         return "Issue map";
-    if(stage==="running:root"||stage==="review:root") return "Root Cause";
-    if(stage==="remediation")                   return "Simulation";
-    if(stage==="plan")                          return "Rem Plan";
-    if(stage==="done")                          return "Rem Plan";
+  const sidebarActive=s=>{
+    if(s==="macro")                   return "Issue map";
+    if(s==="running:root")            return "Root Cause";
+    if(s==="plan")                    return "Fix Plan";
+    if(s==="confirm"||s==="done")     return "Sign-off";
     return "Issue map";
   };
   const active=sidebarActive(stage);
 
   const navItems=[
     {section:null,    items:[{label:"Issue map",icon:"⬡"},{label:"Accuracy",icon:"◎"},{label:"Completeness",icon:"◑"},{label:"Timeliness",icon:"◷"},{label:"Benchmarking",icon:"↗"}]},
-    {section:"Re:ACT",items:[{label:"Root Cause",icon:"⌥"},{label:"Simulation",icon:"▷"},{label:"Rem Plan",icon:"✦"}]},
+    {section:"Re:ACT",items:[{label:"Root Cause",icon:"⌥"},{label:"Fix Plan",icon:"▷"},{label:"Sign-off",icon:"✦"}]},
   ];
 
   const sidebar=(
@@ -3740,8 +4211,8 @@ function App(){
           )}
           {items.map(({label,icon})=>{
             const isActive=label===active;
-            const isDone=(label==="Root Cause"&&["remediation","plan","done"].includes(stage))||
-                         (label==="Simulation"&&["plan","done"].includes(stage));
+            const isDone=(label==="Root Cause"&&["plan","confirm","done"].includes(stage))||
+                         (label==="Fix Plan"&&["confirm","done"].includes(stage));
             return(
               <div key={label} style={{
                 display:"flex",alignItems:"center",gap:9,
@@ -3786,8 +4257,8 @@ function App(){
         )}
         {stage==="macro"       &&<MacroView onLaunch={runRootCause}/>}
         {stage==="running:root"&&<AgentRunning agent={A.root}/>}
-        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("plan")} onBack={()=>setStage("macro")} onCancel={()=>setStage("macro")}/>}
-        {stage==="plan"        &&<RemPlanScreen onApprove={()=>setStage("done")} onBack={()=>setStage("remediation")} onCancel={()=>setStage("macro")}/>}
+        {stage==="plan"        &&<PlanAndSimScreen cascade={cascade} onConfirm={()=>setStage("confirm")} onBack={()=>setStage("macro")} onCancel={()=>setStage("macro")}/>}
+        {stage==="confirm"     &&<ConfirmScreen onSubmit={()=>setStage("done")} onBack={()=>setStage("plan")} onCancel={()=>setStage("macro")}/>}
         {stage==="done"        &&<DoneScreen onRestart={()=>setStage("macro")}/>}
       </div>
     </div>
