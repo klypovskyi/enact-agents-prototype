@@ -1707,12 +1707,25 @@ const PRIORITY_CFG={
   P3:{bg:"#EBF2FB",col:C.blue,   border:"#BFDBFE"},
 };
 
+// detect which field keys appear in multiple clusters
+const buildSharedFieldMap=()=>{
+  const map={};
+  MACRO_CLUSTERS.forEach(c=>{
+    (c.fieldBreakdown||[]).forEach(f=>{
+      if(!map[f.field]) map[f.field]=[];
+      map[f.field].push(c.id);
+    });
+  });
+  return map;
+};
+const SHARED_FIELD_MAP=buildSharedFieldMap();
+
 const MacroView=({onLaunch})=>{
   const [activeRegime,setActiveRegime]=useState("All");
-  const [expanded,setExpanded]=useState({});       // {id: bool}
-  const [priorities,setPriorities]=useState({});   // {id: "P1"|"P2"|"P3"|null}
-  const [queued,setQueued]=useState({});           // {id: bool}
-  const [sortBy,setSortBy]=useState("failures");   // failures|impact|confidence
+  const [expanded,setExpanded]=useState({});
+  const [priorities,setPriorities]=useState({});
+  const [queued,setQueued]=useState({});
+  const [sortBy,setSortBy]=useState("failures");
 
   const regimePills=["All","EU EMIR","CFTC P45","EU MiFIR"];
 
@@ -1733,258 +1746,279 @@ const MacroView=({onLaunch})=>{
   const toggleQueue=id=>setQueued(p=>({...p,[id]:!p[id]}));
   const setPri=(id,p)=>setPriorities(prev=>({...prev,[id]:prev[id]===p?null:p}));
 
-  const SortBtn=({k,label})=>(
-    <button onClick={()=>setSortBy(k)}
-      style={{
-        padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
-        background:sortBy===k?C.blue:"transparent",
-        color:sortBy===k?"#fff":C.ink3,
-        border:`1px solid ${sortBy===k?C.blue:C.line}`,
-        transition:"all 120ms",
-      }}>{label}</button>
-  );
-
   // ── single cluster row ──────────────────────────────────────────────────────
   const ClusterRow=({c})=>{
     const sev=sevCfg[c.severity]||sevCfg.medium;
     const isOpen=!!expanded[c.id];
     const pri=priorities[c.id];
-    const priCfg=pri?PRIORITY_CFG[pri]:null;
     const inQueue=!!queued[c.id];
+    const maxFailures=Math.max(...c.fieldBreakdown.map(f=>f.failures));
+
+    // detect if any field in this cluster also appears in another cluster
+    const sharedFields=c.fieldBreakdown.filter(f=>(SHARED_FIELD_MAP[f.field]||[]).length>1);
+    const allSameCount=c.fieldBreakdown.length>1 &&
+      c.fieldBreakdown.every(f=>f.failures===c.fieldBreakdown[0].failures);
 
     return(
       <div style={{
         background:"#fff",
         borderRadius:10,
         border:`1.5px solid ${inQueue?C.blue:isOpen?"#CBD5E1":C.line}`,
-        boxShadow:inQueue?`0 0 0 3px ${C.blueT2}`:isOpen?"0 2px 12px rgba(0,0,0,0.07)":"none",
-        transition:"all 150ms ease",
+        boxShadow:inQueue?`0 0 0 3px ${C.blueT2}`:isOpen?"0 2px 16px rgba(0,0,0,0.06)":"none",
+        transition:"border-color 150ms,box-shadow 150ms",
         overflow:"hidden",
       }}>
 
-        {/* ── row header ── */}
-        <div
-          onClick={()=>toggleExpand(c.id)}
-          style={{
-            display:"grid",
-            gridTemplateColumns:"18px 72px 1fr 90px 80px 80px 100px 44px 36px",
-            alignItems:"center",
-            gap:12,
-            padding:"12px 16px",
-            cursor:"pointer",
-            userSelect:"none",
-          }}
-        >
-          {/* severity dot */}
+        {/* ── collapsed header ── */}
+        <div onClick={()=>toggleExpand(c.id)} style={{
+          display:"flex",alignItems:"center",gap:0,
+          cursor:"pointer",userSelect:"none",
+          padding:"0 14px 0 0",
+          minHeight:56,
+        }}>
+          {/* severity stripe */}
           <div style={{
-            width:10,height:10,borderRadius:999,
-            background:sev.col,flexShrink:0,
+            width:4,alignSelf:"stretch",background:sev.col,flexShrink:0,
+            borderRadius:"10px 0 0 10px",
           }}/>
 
-          {/* RC id + cross-regime badge */}
-          <div style={{display:"flex",flexDirection:"column",gap:3}}>
-            <span style={{fontSize:12,fontWeight:800,color:C.ink,fontFamily:"ui-monospace,monospace",letterSpacing:"0.02em"}}>{c.id}</span>
+          {/* ID */}
+          <div style={{
+            width:60,flexShrink:0,textAlign:"center",
+            paddingLeft:14,paddingRight:6,
+          }}>
+            <div style={{fontSize:11,fontWeight:800,color:sev.col,fontFamily:"ui-monospace,monospace"}}>{c.id}</div>
             {c.crossRegime&&(
-              <span style={{
-                fontSize:9,fontWeight:700,color:C.blue,background:C.blueT2,
-                padding:"1px 5px",borderRadius:4,width:"fit-content",
-              }}>↗ cross</span>
+              <div style={{fontSize:8,fontWeight:700,color:C.blue,marginTop:2}}>↗ CROSS</div>
             )}
           </div>
 
-          {/* title + regime badges */}
-          <div style={{minWidth:0}}>
+          {/* title block */}
+          <div style={{flex:1,minWidth:0,padding:"12px 12px 12px 6px"}}>
             <div style={{
               fontSize:13,fontWeight:700,color:C.ink,lineHeight:1.3,
               whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
             }}>{c.title}</div>
-            <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
               {c.regimes.map(r=>(
                 <span key={r} style={{
                   fontSize:9,fontWeight:700,color:C.blue,
                   background:C.blueT2,padding:"1px 6px",borderRadius:4,
                 }}>{r}</span>
               ))}
-              <span style={{
-                fontSize:9,fontWeight:600,color:C.ink3,
-                background:"#F1F5F9",padding:"1px 6px",borderRadius:4,
-              }}>{c.fieldsAffected} field{c.fieldsAffected!==1?"s":""}</span>
+              <span style={{fontSize:10,color:C.ink3,fontWeight:500}}>
+                {c.fieldsAffected} field{c.fieldsAffected!==1?"s":" "} · {c.source}
+              </span>
             </div>
           </div>
 
-          {/* failures */}
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:14,fontWeight:800,color:sev.col,letterSpacing:"-0.02em"}}>{c.failures.toLocaleString()}</div>
-            <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}}>failures</div>
-          </div>
-
-          {/* impact bar */}
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>Impact</span>
-              <span style={{fontSize:11,fontWeight:800,color:sev.col}}>{c.impactPct}%</span>
+          {/* key stats — compact, inline */}
+          <div style={{
+            display:"flex",alignItems:"center",gap:20,
+            flexShrink:0,paddingRight:16,
+          }}>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:16,fontWeight:800,color:sev.col,letterSpacing:"-0.02em",lineHeight:1}}>{c.failures.toLocaleString()}</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>failures</div>
             </div>
-            <div style={{height:4,background:C.muted,borderRadius:999}}>
-              <div style={{width:`${c.impactPct}%`,height:"100%",background:sev.col,borderRadius:999}}/>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.ink,letterSpacing:"-0.02em",lineHeight:1}}>{c.impactPct}%</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>of submissions</div>
             </div>
-          </div>
-
-          {/* confidence */}
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:14,fontWeight:800,color:C.ink,letterSpacing:"-0.02em"}}>{c.confidence}%</div>
-            <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}}>confidence</div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.ink2,letterSpacing:"-0.02em",lineHeight:1}}>{c.confidence}%</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>confidence</div>
+            </div>
           </div>
 
           {/* priority picker */}
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{display:"flex",gap:3,flexShrink:0,marginRight:10}}>
             {["P1","P2","P3"].map(p=>{
               const pc=PRIORITY_CFG[p];
               const active=pri===p;
               return(
                 <button key={p} onClick={()=>setPri(c.id,p)}
                   style={{
-                    flex:1,padding:"3px 0",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",
+                    width:28,height:24,borderRadius:4,fontSize:10,fontWeight:700,cursor:"pointer",
                     background:active?pc.col:"transparent",
                     color:active?"#fff":pc.col,
                     border:`1.5px solid ${active?pc.col:pc.border}`,
-                    transition:"all 120ms",
+                    transition:"all 100ms",padding:0,
                   }}>{p}</button>
               );
             })}
           </div>
 
-          {/* queue toggle */}
-          <div onClick={e=>e.stopPropagation()}
-            style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {/* queue btn */}
+          <div onClick={e=>e.stopPropagation()} style={{flexShrink:0,marginRight:10}}>
             <button onClick={()=>toggleQueue(c.id)}
-              title={inQueue?"Remove from queue":"Add to queue"}
               style={{
                 width:28,height:28,borderRadius:6,cursor:"pointer",
                 background:inQueue?C.blue:C.blueT2,
                 color:inQueue?"#fff":C.blue,
                 border:`1.5px solid ${inQueue?C.blue:C.blueT}`,
-                fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",
-                transition:"all 140ms",
+                fontSize:13,fontWeight:700,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                transition:"all 120ms",
               }}>{inQueue?"✓":"+"}</button>
           </div>
 
           {/* chevron */}
           <div style={{
-            display:"flex",alignItems:"center",justifyContent:"center",
-            color:C.ink3,fontSize:12,
+            color:C.ink3,fontSize:11,flexShrink:0,
             transform:isOpen?"rotate(180deg)":"rotate(0deg)",
-            transition:"transform 200ms",
+            transition:"transform 180ms",
           }}>▾</div>
         </div>
 
-        {/* ── expanded detail ── */}
+        {/* ── expanded panel ── */}
         {isOpen&&(
-          <div style={{
-            borderTop:`1px solid ${C.line}`,
-            background:"#FAFBFC",
-            padding:"20px 20px 20px 46px",
-            display:"flex",gap:28,
-          }}>
+          <div style={{borderTop:`1px solid ${C.line}`,background:"#FAFBFC"}}>
 
-            {/* left: field breakdown table */}
-            <div style={{flex:"0 0 420px"}}>
-              <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Field breakdown</div>
-              <div style={{borderRadius:8,border:`1px solid ${C.line}`,overflow:"hidden",background:"#fff"}}>
-                <div style={{
-                  display:"grid",gridTemplateColumns:"1fr 80px 1fr",
-                  padding:"6px 12px",background:"#F8FAFC",
-                  borderBottom:`1px solid ${C.line}`,
-                }}>
-                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em"}}>Field</span>
-                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"right"}}>Failures</span>
-                  <span style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:12}}>% impact</span>
+            {/* insight strip — contextual callouts */}
+            {(allSameCount||c.crossRegime||sharedFields.length>0)&&(
+              <div style={{
+                display:"flex",gap:8,padding:"10px 20px",
+                background:"#EBF2FB",borderBottom:`1px solid #BFDBFE`,
+                flexWrap:"wrap",
+              }}>
+                {allSameCount&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:12}}>⚡</span>
+                    <span style={{fontSize:11,fontWeight:600,color:"#1E3A5F"}}>
+                      All {c.fieldBreakdown.length} fields fail in identical submissions ({c.fieldBreakdown[0].failures.toLocaleString()}) — single upstream cause likely
+                    </span>
+                  </div>
+                )}
+                {c.crossRegime&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:12}}>↗</span>
+                    <span style={{fontSize:11,fontWeight:600,color:"#1E3A5F"}}>
+                      Cross-regime: {c.regimes.join(" & ")} share the same root cause — one fix covers both
+                    </span>
+                  </div>
+                )}
+                {sharedFields.length>0&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:12}}>🔗</span>
+                    <span style={{fontSize:11,fontWeight:600,color:"#1E3A5F"}}>
+                      {sharedFields.length} field{sharedFields.length!==1?"s":""} also appear in other clusters — shared pipeline risk
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:0}}>
+
+              {/* LEFT — field impact visualisation */}
+              <div style={{flex:"0 0 55%",padding:"20px 24px",borderRight:`1px solid ${C.line}`}}>
+                <div style={{fontSize:10,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:14}}>
+                  Failed fields — {c.submissions.toLocaleString()} total submissions
                 </div>
-                {c.fieldBreakdown.map((f,i)=>(
-                  <div key={f.field} style={{
-                    display:"grid",gridTemplateColumns:"1fr 80px 1fr",
-                    padding:"9px 12px",
-                    borderBottom:i<c.fieldBreakdown.length-1?`1px solid ${C.line}`:"none",
-                    alignItems:"center",
-                  }}>
-                    <div>
-                      <div style={{fontSize:11,fontWeight:700,color:C.ink,lineHeight:1.2}}>{f.label}</div>
-                      <div style={{
-                        fontSize:9,color:C.ink3,fontFamily:"ui-monospace,monospace",
-                        marginTop:2,fontWeight:500,
-                      }}>{f.field}</div>
-                    </div>
-                    <div style={{textAlign:"right",fontSize:12,fontWeight:700,color:sev.col}}>{f.failures.toLocaleString()}</div>
-                    <div style={{paddingLeft:12}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <div style={{flex:1,height:4,background:C.muted,borderRadius:999}}>
-                          <div style={{width:`${f.pct}%`,height:"100%",background:sev.col,borderRadius:999}}/>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {c.fieldBreakdown.map(f=>{
+                    const barW=maxFailures>0?(f.failures/maxFailures)*100:0;
+                    const isShared=(SHARED_FIELD_MAP[f.field]||[]).length>1;
+                    return(
+                      <div key={f.field}>
+                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0,flex:1}}>
+                            <span style={{
+                              fontSize:12,fontWeight:700,color:C.ink,
+                              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+                            }}>{f.label}</span>
+                            {isShared&&(
+                              <span style={{
+                                fontSize:8,fontWeight:700,color:C.blue,
+                                background:C.blueT2,padding:"1px 5px",borderRadius:3,
+                                flexShrink:0,
+                              }}>shared</span>
+                            )}
+                          </div>
+                          <div style={{display:"flex",alignItems:"baseline",gap:6,flexShrink:0,marginLeft:8}}>
+                            <span style={{fontSize:13,fontWeight:800,color:sev.col}}>{f.failures.toLocaleString()}</span>
+                            <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>{f.pct}%</span>
+                          </div>
                         </div>
-                        <span style={{fontSize:10,fontWeight:700,color:sev.col,minWidth:28,textAlign:"right"}}>{f.pct}%</span>
+                        <div style={{position:"relative",height:6,background:C.muted,borderRadius:3}}>
+                          <div style={{
+                            position:"absolute",left:0,top:0,bottom:0,
+                            width:`${barW}%`,
+                            background:sev.col,borderRadius:3,
+                            opacity:0.85,
+                          }}/>
+                        </div>
+                        <div style={{
+                          fontSize:9,color:C.ink3,marginTop:3,
+                          fontFamily:"ui-monospace,monospace",fontWeight:500,
+                        }}>{f.field}</div>
                       </div>
-                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* RIGHT — root cause narrative */}
+              <div style={{flex:1,padding:"20px 22px",display:"flex",flexDirection:"column",gap:16}}>
+
+                {/* RCA type tag */}
+                <div style={{
+                  display:"inline-flex",alignItems:"center",gap:6,
+                  padding:"4px 10px",borderRadius:5,width:"fit-content",
+                  background:sev.bg,border:`1px solid ${sev.col}33`,
+                }}>
+                  <span style={{width:6,height:6,borderRadius:999,background:sev.col,flexShrink:0}}/>
+                  <span style={{fontSize:11,fontWeight:700,color:sev.col}}>{c.rcaType}</span>
+                </div>
+
+                {/* summary — the "what happened" */}
+                <div>
+                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:6}}>What happened</div>
+                  <div style={{fontSize:12,color:C.ink,lineHeight:1.7,fontWeight:400}}>{c.summary}</div>
+                </div>
+
+                {/* pattern */}
+                <div style={{
+                  padding:"10px 12px",
+                  background:"#fff",borderRadius:7,
+                  border:`1px solid ${C.line}`,
+                }}>
+                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:5}}>Failure pattern</div>
+                  <div style={{fontSize:12,color:C.ink2,lineHeight:1.55}}>{c.pattern}</div>
+                </div>
+
+                {/* confidence gauge */}
+                <div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em"}}>Fix confidence</span>
+                    <span style={{fontSize:13,fontWeight:800,color:c.confidence>=80?C.green:c.confidence>=60?"#B45309":C.ink2}}>{c.confidence}%</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* right: summary + metadata */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:14}}>
-
-              {/* RCA type badge */}
-              <div style={{
-                display:"inline-flex",alignItems:"center",gap:6,
-                padding:"4px 10px",borderRadius:6,width:"fit-content",
-                background:sev.bg,border:`1px solid ${sev.col}33`,
-              }}>
-                <span style={{width:6,height:6,borderRadius:999,background:sev.col,flexShrink:0}}/>
-                <span style={{fontSize:11,fontWeight:700,color:sev.col}}>{sev.label}</span>
-                <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>·</span>
-                <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>{c.rcaType}</span>
-              </div>
-
-              {/* summary */}
-              <div style={{fontSize:12,color:C.ink2,lineHeight:1.65}}>{c.summary}</div>
-
-              {/* pattern note */}
-              <div style={{
-                display:"flex",alignItems:"flex-start",gap:8,
-                padding:"10px 12px",background:"#fff",
-                borderRadius:7,border:`1px solid ${C.line}`,
-              }}>
-                <span style={{fontSize:14,flexShrink:0,marginTop:1}}>↻</span>
-                <span style={{fontSize:11,color:C.ink3,lineHeight:1.5,fontStyle:"italic"}}>{c.pattern}</span>
-              </div>
-
-              {/* source + submissions */}
-              <div style={{display:"flex",gap:10}}>
-                {[
-                  {l:"Source",      v:c.source},
-                  {l:"Submissions", v:c.submissions.toLocaleString()},
-                  {l:"Confidence",  v:`${c.confidence}%`},
-                ].map(({l,v})=>(
-                  <div key={l} style={{
-                    flex:1,padding:"8px 10px",
-                    background:"#fff",borderRadius:6,
-                    border:`1px solid ${C.line}`,
-                  }}>
-                    <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{l}</div>
-                    <div style={{fontSize:12,fontWeight:700,color:C.ink}}>{v}</div>
+                  <div style={{height:5,background:C.muted,borderRadius:999,overflow:"hidden"}}>
+                    <div style={{
+                      width:`${c.confidence}%`,height:"100%",borderRadius:999,
+                      background:c.confidence>=80?C.green:c.confidence>=60?"#B45309":C.ink2,
+                    }}/>
                   </div>
-                ))}
-              </div>
+                  <div style={{fontSize:10,color:C.ink3,marginTop:5}}>
+                    {c.confidence>=80?"High — agent confident in proposed resolution"
+                    :c.confidence>=60?"Medium — manual review recommended before applying fix"
+                    :"Lower — further investigation needed before proceeding"}
+                  </div>
+                </div>
 
-              {/* queue / investigate CTA */}
-              <div style={{display:"flex",gap:8,marginTop:4}}>
+                {/* queue CTA */}
                 <button onClick={()=>toggleQueue(c.id)}
                   style={{
-                    flex:1,padding:"9px 14px",borderRadius:7,
+                    marginTop:"auto",padding:"9px 14px",borderRadius:7,
                     fontSize:12,fontWeight:700,cursor:"pointer",
                     background:inQueue?"#EBF2FB":"#fff",
                     color:inQueue?C.blue:C.ink2,
                     border:`1.5px solid ${inQueue?C.blue:C.line}`,
-                    transition:"all 140ms",
+                    transition:"all 120ms",textAlign:"center",
                   }}>
-                  {inQueue?"✓ In investigation queue":"+ Add to investigation queue"}
+                  {inQueue?"✓ Added to investigation queue":"+ Add to investigation queue"}
                 </button>
               </div>
             </div>
@@ -1999,135 +2033,119 @@ const MacroView=({onLaunch})=>{
 
       {/* ── LEFT SIDEBAR ── */}
       <div style={{
-        width:256,background:"#0F1E2E",color:"#fff",
+        width:244,background:"#0F1E2E",color:"#fff",
         display:"flex",flexDirection:"column",
-        padding:"22px 16px 20px",gap:0,flexShrink:0,
+        padding:"22px 16px 20px",flexShrink:0,
         borderRight:"1px solid #ffffff15",
         overflowY:"auto",
       }}>
-        {/* logo + label */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
           <div style={{
             width:30,height:30,borderRadius:8,
             background:`radial-gradient(circle at 34% 34%,${C.blue}CC,${C.blue}55)`,
             border:`1.5px solid ${C.blue}`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
           }}>
             <AIStar size={14} colour="#fff"/>
           </div>
           <div>
             <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>En&gt;ACT</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:500,marginTop:1}}>Issue Intelligence</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.45)",marginTop:1}}>Issue Intelligence</div>
           </div>
         </div>
 
-        {/* entity block */}
-        <div style={{padding:"12px 14px",background:"rgba(255,255,255,0.06)",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",marginBottom:20}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:6}}>{MACRO_SUMMARY.entity}</div>
-          <div style={{
-            display:"inline-flex",alignItems:"center",gap:5,
-            padding:"2px 9px",borderRadius:999,marginBottom:8,
-            background:"rgba(68,112,173,0.25)",border:"1px solid rgba(68,112,173,0.5)",
-          }}>
-            <span style={{fontSize:10,color:C.blueT,fontFamily:"ui-monospace,monospace",fontWeight:600}}>{MACRO_SUMMARY.lei}</span>
-          </div>
+        {/* entity */}
+        <div style={{padding:"11px 13px",background:"rgba(255,255,255,0.06)",borderRadius:9,border:"1px solid rgba(255,255,255,0.1)",marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:5}}>{MACRO_SUMMARY.entity}</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",fontFamily:"ui-monospace,monospace",marginBottom:8}}>{MACRO_SUMMARY.lei}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
             {MACRO_SUMMARY.regimes.map(r=>(
-              <span key={r} style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.7)",background:"rgba(255,255,255,0.08)",padding:"2px 8px",borderRadius:999,border:"1px solid rgba(255,255,255,0.12)"}}>{r}</span>
+              <span key={r} style={{fontSize:9,fontWeight:600,color:"rgba(255,255,255,0.65)",background:"rgba(255,255,255,0.08)",padding:"2px 7px",borderRadius:999,border:"1px solid rgba(255,255,255,0.1)"}}>{r}</span>
             ))}
           </div>
         </div>
 
-        {/* detection scope */}
+        {/* scope stats */}
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Detection scope</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {[
-              {l:"Submissions scanned", v:MACRO_SUMMARY.totalSubmissions.toLocaleString()},
-              {l:"Fields analysed",     v:MACRO_SUMMARY.fieldsWithIssues},
-              {l:"Root cause clusters", v:MACRO_CLUSTERS.length},
-              {l:"Regimes",             v:MACRO_SUMMARY.regimes.length},
-            ].map(({l,v})=>(
-              <div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span style={{fontSize:11,color:"rgba(255,255,255,0.55)"}}>{l}</span>
-                <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>{v}</span>
-              </div>
-            ))}
-          </div>
+          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Detection scope</div>
+          {[
+            {l:"Submissions",      v:MACRO_SUMMARY.totalSubmissions.toLocaleString()},
+            {l:"Total failures",   v:MACRO_SUMMARY.totalFailures.toLocaleString()},
+            {l:"Fields with issues",v:MACRO_SUMMARY.fieldsWithIssues},
+            {l:"Root cause clusters",v:MACRO_CLUSTERS.length},
+          ].map(({l,v})=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>{l}</span>
+              <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>{v}</span>
+            </div>
+          ))}
         </div>
 
-        {/* filter by regime */}
+        {/* regime filter */}
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Filter by regime</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Filter by regime</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {regimePills.map(r=>{
               const active=activeRegime===r;
               return(
                 <button key={r} onClick={()=>setActiveRegime(r)}
                   style={{
-                    padding:"5px 11px",borderRadius:999,fontSize:11,fontWeight:600,cursor:"pointer",
+                    padding:"5px 10px",borderRadius:999,fontSize:10,fontWeight:600,cursor:"pointer",
                     background:active?C.blue:"transparent",
-                    color:active?"#fff":"rgba(255,255,255,0.6)",
-                    border:`1px solid ${active?C.blue:"rgba(255,255,255,0.2)"}`,
-                    transition:"all 140ms ease",
+                    color:active?"#fff":"rgba(255,255,255,0.55)",
+                    border:`1px solid ${active?C.blue:"rgba(255,255,255,0.18)"}`,
+                    transition:"all 130ms",
                   }}>{r}</button>
               );
             })}
           </div>
         </div>
 
-        {/* severity breakdown */}
+        {/* severity */}
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Severity</div>
+          <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>By severity</div>
           {["critical","high","medium"].map(s=>{
             const cnt=MACRO_CLUSTERS.filter(c=>c.severity===s).length;
             const cfg=sevCfg[s];
             return(
-              <div key={s} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-                <div style={{width:8,height:8,borderRadius:999,background:cfg.col,flexShrink:0}}/>
-                <span style={{fontSize:11,color:"rgba(255,255,255,0.6)",flex:1,textTransform:"capitalize"}}>{cfg.label}</span>
-                <span style={{
-                  fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.9)",
-                  background:"rgba(255,255,255,0.1)",padding:"1px 7px",borderRadius:999,
-                }}>{cnt}</span>
+              <div key={s} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <div style={{width:7,height:7,borderRadius:999,background:cfg.col,flexShrink:0}}/>
+                <span style={{fontSize:11,color:"rgba(255,255,255,0.55)",flex:1,textTransform:"capitalize"}}>{cfg.label}</span>
+                <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",background:"rgba(255,255,255,0.09)",padding:"1px 8px",borderRadius:999}}>{cnt}</span>
               </div>
             );
           })}
         </div>
 
-        {/* queue summary */}
+        {/* queue count */}
         {hasQueue&&(
           <div style={{
             padding:"10px 12px",marginBottom:16,
-            background:"rgba(68,112,173,0.2)",
-            border:"1px solid rgba(68,112,173,0.4)",
-            borderRadius:8,
+            background:"rgba(68,112,173,0.22)",border:"1px solid rgba(68,112,173,0.4)",borderRadius:8,
           }}>
-            <div style={{fontSize:10,color:C.blueT,fontWeight:700,marginBottom:4}}>Investigation queue</div>
+            <div style={{fontSize:10,color:C.blueT,fontWeight:700,marginBottom:3}}>Investigation queue</div>
             <div style={{fontSize:22,fontWeight:800,color:"#fff",lineHeight:1}}>{queuedList.length}</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:2}}>cluster{queuedList.length!==1?"s":""} selected</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.45)",marginTop:2}}>cluster{queuedList.length!==1?"s":""} selected</div>
           </div>
         )}
 
         <div style={{flex:1}}/>
 
-        {/* launch button */}
         <button
           onClick={hasQueue?onLaunch:undefined}
           style={{
-            width:"100%",padding:"12px",borderRadius:8,
-            fontSize:13,fontWeight:700,
+            width:"100%",padding:"11px",borderRadius:8,
+            fontSize:12,fontWeight:700,
             cursor:hasQueue?"pointer":"default",
-            background:hasQueue?C.blue:"rgba(255,255,255,0.08)",
-            color:hasQueue?"#fff":"rgba(255,255,255,0.3)",
-            border:`1.5px solid ${hasQueue?C.blue:"rgba(255,255,255,0.12)"}`,
+            background:hasQueue?C.blue:"rgba(255,255,255,0.07)",
+            color:hasQueue?"#fff":"rgba(255,255,255,0.28)",
+            border:`1.5px solid ${hasQueue?C.blue:"rgba(255,255,255,0.1)"}`,
             boxShadow:hasQueue?`0 4px 16px ${C.blue}55`:"none",
-            transition:"all 160ms ease",
-            display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+            transition:"all 150ms",
+            display:"flex",alignItems:"center",justifyContent:"center",gap:7,
           }}>
-          <AIStar size={14} colour={hasQueue?"#fff":"rgba(255,255,255,0.3)"}/>
-          {hasQueue?"Launch Root Cause Agent →":"Select clusters to launch"}
+          <AIStar size={13} colour={hasQueue?"#fff":"rgba(255,255,255,0.25)"}/>
+          {hasQueue?"Launch Root Cause Agent →":"Queue clusters to begin"}
         </button>
       </div>
 
@@ -2136,160 +2154,125 @@ const MacroView=({onLaunch})=>{
 
         {/* top bar */}
         <div style={{
-          padding:"16px 24px",background:"#fff",
+          padding:"14px 22px",background:"#fff",
           borderBottom:`1px solid ${C.line}`,flexShrink:0,
-          display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,
+          display:"flex",alignItems:"center",gap:16,
         }}>
-          <div>
-            <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
-            <div style={{fontSize:12,color:C.ink2,marginTop:3}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:17,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
+            <div style={{fontSize:11,color:C.ink3,marginTop:3}}>
               {displayed.length} root cause clusters · {MACRO_SUMMARY.totalFailures.toLocaleString()} total failures · {MACRO_SUMMARY.window}
             </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:11,color:C.ink3,fontWeight:600,marginRight:4}}>Sort by</span>
-            <SortBtn k="failures"   label="Failures"/>
-            <SortBtn k="impact"     label="Impact %"/>
-            <SortBtn k="confidence" label="Confidence"/>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>Sort</span>
+            {[["failures","By failures"],["impact","By impact"],["confidence","By confidence"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setSortBy(k)}
+                style={{
+                  padding:"4px 10px",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer",
+                  background:sortBy===k?C.blue:"transparent",
+                  color:sortBy===k?"#fff":C.ink3,
+                  border:`1px solid ${sortBy===k?C.blue:C.line}`,
+                  transition:"all 100ms",
+                }}>{l}</button>
+            ))}
           </div>
           <Clock/>
         </div>
 
-        {/* table header */}
-        <div style={{
-          display:"grid",
-          gridTemplateColumns:"18px 72px 1fr 90px 80px 80px 100px 44px 36px",
-          gap:12,padding:"8px 16px",
-          background:"#F8FAFC",
-          borderBottom:`1px solid ${C.line}`,
-          flexShrink:0,
-        }}>
-          {["","ID","Title / Regime","Failures","Impact","Confidence","Priority","Queue",""].map((h,i)=>(
-            <div key={i} style={{
-              fontSize:9,fontWeight:700,color:C.ink3,
-              textTransform:"uppercase",letterSpacing:"0.08em",
-              textAlign:i===3||i===5?"right":"left",
-            }}>{h}</div>
-          ))}
-        </div>
-
-        {/* rows */}
-        <div style={{flex:1,overflowY:"auto",padding:"12px 12px 24px"}}>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {/* list */}
+        <div style={{flex:1,overflowY:"auto",padding:"14px 16px 28px"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
             {displayed.map(c=>(
               <ClusterRow key={c.id} c={c}/>
             ))}
           </div>
 
-          {/* bottom hint when nothing queued */}
           {!hasQueue&&(
             <div style={{
-              marginTop:20,padding:"14px 20px",
-              background:"#fff",borderRadius:10,
+              marginTop:18,padding:"12px 18px",
+              background:"#fff",borderRadius:9,
               border:`1px dashed ${C.line}`,
               display:"flex",alignItems:"center",gap:10,
             }}>
-              <span style={{fontSize:18,opacity:0.4}}>☝</span>
-              <div>
-                <div style={{fontSize:12,fontWeight:600,color:C.ink2}}>Click any row to expand · use + to queue clusters for investigation</div>
-                <div style={{fontSize:11,color:C.ink3,marginTop:2}}>Assign P1/P2/P3 priority, then launch the root cause agent when ready.</div>
-              </div>
+              <span style={{fontSize:16,opacity:0.35}}>☝</span>
+              <span style={{fontSize:11,color:C.ink3}}>
+                Click any row to see what failed and why · use <strong>+</strong> to queue clusters · assign P1–P3 priority before launching
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── QUEUE PANEL (slides in from right) ── */}
+      {/* ── QUEUE PANEL ── */}
       {hasQueue&&(
         <div style={{
-          width:260,background:"#fff",flexShrink:0,
-          borderLeft:`1.5px solid ${C.blue}33`,
+          width:248,background:"#fff",flexShrink:0,
+          borderLeft:`1.5px solid ${C.blue}28`,
           display:"flex",flexDirection:"column",
-          boxShadow:"-4px 0 20px rgba(68,112,173,0.08)",
+          boxShadow:"-3px 0 16px rgba(68,112,173,0.07)",
         }}>
           <div style={{
-            padding:"16px 16px 12px",
+            padding:"14px 14px 11px",
             borderBottom:`1px solid ${C.line}`,
             display:"flex",alignItems:"center",justifyContent:"space-between",
           }}>
             <div>
-              <div style={{fontSize:13,fontWeight:700,color:C.ink}}>Investigation queue</div>
-              <div style={{fontSize:11,color:C.ink3,marginTop:2}}>{queuedList.length} cluster{queuedList.length!==1?"s":""} selected</div>
+              <div style={{fontSize:12,fontWeight:700,color:C.ink}}>Investigation queue</div>
+              <div style={{fontSize:10,color:C.ink3,marginTop:2}}>{queuedList.length} cluster{queuedList.length!==1?"s":""}</div>
             </div>
             <button onClick={()=>setQueued({})}
               style={{
-                padding:"3px 8px",borderRadius:5,fontSize:10,fontWeight:600,
+                padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:600,
                 cursor:"pointer",background:"#FEF2F2",color:"#e14a37",
                 border:"1px solid #FECACA",
-              }}>Clear</button>
+              }}>Clear all</button>
           </div>
 
-          <div style={{flex:1,overflowY:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{flex:1,overflowY:"auto",padding:"10px 12px",display:"flex",flexDirection:"column",gap:7}}>
             {queuedList.map(c=>{
               const sev=sevCfg[c.severity]||sevCfg.medium;
               const pri=priorities[c.id];
               return(
                 <div key={c.id} style={{
-                  padding:"10px 12px",borderRadius:8,
-                  background:"#F8FAFC",
-                  border:`1px solid ${C.line}`,
-                  position:"relative",
+                  padding:"9px 11px",borderRadius:8,
+                  background:"#F8FAFC",border:`1px solid ${C.line}`,
                 }}>
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:4}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
-                        <span style={{
-                          fontSize:9,fontWeight:800,color:sev.col,
-                          background:sev.bg,padding:"1px 5px",borderRadius:4,
-                        }}>{c.id}</span>
-                        {pri&&(
-                          <span style={{
-                            fontSize:9,fontWeight:700,
-                            color:PRIORITY_CFG[pri].col,
-                            background:PRIORITY_CFG[pri].bg,
-                            padding:"1px 5px",borderRadius:4,
-                          }}>{pri}</span>
-                        )}
+                      <div style={{display:"flex",gap:4,marginBottom:4}}>
+                        <span style={{fontSize:9,fontWeight:800,color:sev.col,background:sev.bg,padding:"1px 5px",borderRadius:3}}>{c.id}</span>
+                        {pri&&<span style={{fontSize:9,fontWeight:700,color:PRIORITY_CFG[pri].col,background:PRIORITY_CFG[pri].bg,padding:"1px 5px",borderRadius:3}}>{pri}</span>}
                       </div>
-                      <div style={{
-                        fontSize:11,fontWeight:700,color:C.ink,lineHeight:1.3,
-                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-                      }}>{c.title}</div>
-                      <div style={{fontSize:10,color:C.ink3,marginTop:3}}>
-                        {c.failures.toLocaleString()} failures · {c.impactPct}% impact
-                      </div>
+                      <div style={{fontSize:11,fontWeight:600,color:C.ink,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.title}</div>
+                      <div style={{fontSize:10,color:C.ink3,marginTop:3}}>{c.failures.toLocaleString()} failures · {c.impactPct}% impact</div>
                     </div>
                     <button onClick={()=>toggleQueue(c.id)}
-                      style={{
-                        background:"transparent",border:"none",
-                        cursor:"pointer",color:C.ink3,fontSize:14,
-                        lineHeight:1,padding:"2px",flexShrink:0,
-                      }}>×</button>
+                      style={{background:"transparent",border:"none",cursor:"pointer",color:C.ink3,fontSize:13,padding:"2px",flexShrink:0}}>×</button>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div style={{padding:"14px 16px",borderTop:`1px solid ${C.line}`}}>
+          <div style={{padding:"12px 14px",borderTop:`1px solid ${C.line}`}}>
             <div style={{
-              fontSize:10,color:C.ink3,marginBottom:10,lineHeight:1.5,
-              padding:"8px 10px",background:"#F8FAFC",borderRadius:6,
-              border:`1px solid ${C.line}`,
+              fontSize:10,color:C.ink3,lineHeight:1.55,marginBottom:10,
+              padding:"8px 10px",background:"#F8FAFC",borderRadius:6,border:`1px solid ${C.line}`,
             }}>
-              Root cause agent will run diagnostics on {queuedList.length} cluster{queuedList.length!==1?"s":""} in sequence, generating detailed fix plans for each.
+              Agent will run diagnostics on {queuedList.length} cluster{queuedList.length!==1?"s":""} in sequence and produce detailed fix plans.
             </div>
             <button onClick={onLaunch}
               style={{
-                width:"100%",padding:"11px",borderRadius:8,
-                fontSize:13,fontWeight:700,cursor:"pointer",
+                width:"100%",padding:"10px",borderRadius:7,
+                fontSize:12,fontWeight:700,cursor:"pointer",
                 background:C.blue,color:"#fff",
                 border:`1.5px solid ${C.blue}`,
-                boxShadow:`0 4px 16px ${C.blue}44`,
+                boxShadow:`0 3px 12px ${C.blue}44`,
                 display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-                transition:"all 140ms",
+                transition:"all 130ms",
               }}>
-              <AIStar size={13} colour="#fff"/>
+              <AIStar size={12} colour="#fff"/>
               Launch Root Cause Agent →
             </button>
           </div>
