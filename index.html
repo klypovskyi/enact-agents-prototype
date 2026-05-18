@@ -1281,11 +1281,26 @@ const MACRO_CLUSTERS = [
     pattern:"Recurring across all time periods — not intermittent",
     benchmarkNote:"All 5 identity fields rated 'Least Accurate' vs buy-side peers in benchmarking — not isolated to this entity",
     fieldBreakdown:[
-      {field:"1_2_report_submitting_entity_id",       label:"Report submitting entity ID",     failures:5661, pct:100},
-      {field:"1_3_entity_responsible_for_reporting",  label:"Entity responsible for reporting",failures:5661, pct:100},
-      {field:"1_4_cpty_1_id",                         label:"Counterparty 1",                  failures:5661, pct:100},
-      {field:"1_9_cpty_2_id",                         label:"Counterparty 2",                  failures:5661, pct:100},
-      {field:"2_41_execution_venue",                  label:"Venue of execution",              failures:5661, pct:100},
+      {field:"1_2_report_submitting_entity_id",       label:"Report submitting entity ID",     failures:5661, pct:100,
+        expected:"Valid LEI with 'Issued' status in GLEIF registry",
+        actual:"LEI fails GLEIF status check — 'Lapsed' or not found at submission date",
+        rule:"EMIR-VR-1002-01, EMIR-VR-1002-03"},
+      {field:"1_3_entity_responsible_for_reporting",  label:"Entity responsible for reporting",failures:5661, pct:100,
+        expected:"Valid LEI, status 'Issued' or 'Pending transfer'",
+        actual:"LEI status fails validation — 'Pending archival' or expired entry",
+        rule:"EMIR-VR-1002-02"},
+      {field:"1_4_cpty_1_id",                         label:"Counterparty 1",                  failures:5661, pct:100,
+        expected:"Valid reporting counterparty LEI present in GLEIF",
+        actual:"LEI not found in GLEIF registry at time of submission",
+        rule:"EMIR-VR-1002-01"},
+      {field:"1_9_cpty_2_id",                         label:"Counterparty 2",                  failures:5661, pct:100,
+        expected:"Valid LEI or client code for counterparty 2",
+        actual:"Stale pre-merger identifier — entity merged, ref-data not updated",
+        rule:"EMIR-VR-1002-01"},
+      {field:"2_41_execution_venue",                  label:"Venue of execution",              failures:5661, pct:100,
+        expected:"Valid MIC code, or 'XOFF' / 'XXXX' for OTC",
+        actual:"LEI submitted in a MIC field — format mismatch, wrong identifier type",
+        rule:"EMIR-VR-2041-01"},
     ]},
 
   { id:"RC-B", severity:"high",
@@ -1305,12 +1320,24 @@ const MACRO_CLUSTERS = [
     pattern:"Cross-regime — same root cause, different field path per regime",
     benchmarkNote:"MiFIR accounts for 8,024 failures across 22 fields; CFTC contributes 5,802 failures across 53 fields",
     fieldBreakdown:[
-      {field:"8_buyer_cc",          label:"Country of branch (buyer)",    failures:1401, pct:39},
-      {field:"12_buyer_dm_id_code", label:"Buyer decision maker ID",      failures:1401, pct:39},
-      {field:"17_seller_cc",        label:"Country of branch (seller)",   failures:1031, pct:29},
-      {field:"21_seller_dm_id_code",label:"Seller decision maker ID",     failures:1031, pct:29},
-      {field:"31_quantity_currency",label:"Quantity currency",            failures:998,  pct:28},
-      {field:"34_price_currency",   label:"Price currency",               failures:792,  pct:22},
+      {field:"8_buyer_cc",          label:"Country of branch (buyer)",    failures:1401, pct:39,
+        expected:"ISO 3166-1 alpha-2 code of the buyer's branch making the investment decision (e.g. 'GB')",
+        actual:"Blank — home country used; branch-level country logic not implemented"},
+      {field:"12_buyer_dm_id_code", label:"Buyer decision maker ID",      failures:1401, pct:39,
+        expected:"LEI or national ID of the individual/entity making the investment decision for buyer",
+        actual:"Blank — conditionality branch for branch-level decision maker absent from derivation rule"},
+      {field:"17_seller_cc",        label:"Country of branch (seller)",   failures:1031, pct:29,
+        expected:"ISO country code of the seller's branch location (e.g. 'DE')",
+        actual:"Blank or counterparty home country — branch-specific logic not applied"},
+      {field:"21_seller_dm_id_code",label:"Seller decision maker ID",     failures:1031, pct:29,
+        expected:"LEI or national ID of seller's investment decision maker",
+        actual:"Blank — same derivation gap as buyer decision maker field"},
+      {field:"31_quantity_currency",label:"Quantity currency",            failures:998,  pct:28,
+        expected:"ISO 4217 currency code matching the notional quantity denomination (e.g. 'USD')",
+        actual:"Blank — currency not derived when quantity uses non-standard unit type"},
+      {field:"34_price_currency",   label:"Price currency",               failures:792,  pct:22,
+        expected:"ISO 4217 currency code matching the price field",
+        actual:"Blank — currency derivation fails for specific product/price type combinations"},
     ]},
 
   { id:"RC-C", severity:"high",
@@ -1330,7 +1357,10 @@ const MACRO_CLUSTERS = [
     pattern:"Consistent format error — single pipeline, single fix",
     benchmarkNote:"Quick win: 1 field · 1 test · 84% fix confidence — highest effort-to-impact ratio across all clusters",
     fieldBreakdown:[
-      {field:"2_7_isin", label:"ISIN", failures:4822, pct:85},
+      {field:"2_7_isin", label:"ISIN", failures:4822, pct:85,
+        expected:"12-character alphanumeric ISIN: 2-letter country prefix + 9 chars + check digit (e.g. 'XS2345678901')",
+        actual:"Truncated or malformed value — 11 chars, leading zeros stripped, or hyphens present",
+        rule:"EMIR-VR-207-01"},
     ]},
 
   { id:"RC-D", severity:"high",
@@ -1350,8 +1380,14 @@ const MACRO_CLUSTERS = [
     pattern:"Conditionality logic absent — known Novatus anomaly class",
     benchmarkNote:"Delivery type flagged as 'High Concern' in buy-side benchmarking at 97.7% impact — widespread industry issue",
     fieldBreakdown:[
-      {field:"2_47_delivery_type", label:"Delivery type",  failures:3334, pct:59},
-      {field:"2_11_asset_class",   label:"Asset class",    failures:839,  pct:15},
+      {field:"2_47_delivery_type", label:"Delivery type",  failures:3334, pct:59,
+        expected:"'PHYS', 'CASH', or 'OPTL' based on product type and UPI record in ANNA DSB",
+        actual:"Blank — conditional population rule for UPI-linked delivery type absent from derivation spec",
+        rule:"ANNA DSB UPI conditionality"},
+      {field:"2_11_asset_class",   label:"Asset class",    failures:839,  pct:15,
+        expected:"Asset class per ANNA DSB UPI record (e.g. 'FX', 'IR', 'EQ', 'CR')",
+        actual:"Mismatches UPI record — blank submitted or incorrect class for this instrument",
+        rule:"ANNA DSB UPI conditionality"},
     ]},
 
   { id:"RC-E", severity:"medium",
@@ -1371,11 +1407,21 @@ const MACRO_CLUSTERS = [
     pattern:"Multiple derivation rule gaps — grouped by conditionality failure type",
     benchmarkNote:"UPI flagged 'High Concern' by industry benchmarking at 86.2% impact — fix confidence 60%, manual review recommended",
     fieldBreakdown:[
-      {field:"2_8_upi",               label:"Unique product identifier (UPI)", failures:2495, pct:44},
-      {field:"2_51_strike_price_ccy", label:"Strike price currency/pair",      failures:433,  pct:8},
-      {field:"2_2_package_id",        label:"Package identifier",              failures:369,  pct:7},
-      {field:"2_56_exchange_rate",    label:"Exchange rate basis",             failures:205,  pct:4},
-      {field:"1_3_entity_reporting",  label:"Entity responsible for reporting",failures:68,   pct:1},
+      {field:"2_8_upi",               label:"Unique product identifier (UPI)", failures:2495, pct:44,
+        expected:"Valid UPI from ANNA DSB in prescribed format for this product type",
+        actual:"Blank or internal product code — UPI lookup not executed; conditionality rule incomplete"},
+      {field:"2_51_strike_price_ccy", label:"Strike price currency/pair",      failures:433,  pct:8,
+        expected:"ISO 4217 currency code for strike price denomination (required when option has a strike price)",
+        actual:"Blank — conditionality for options with strike price not triggered"},
+      {field:"2_2_package_id",        label:"Package identifier",              failures:369,  pct:7,
+        expected:"Internal package/link ID when trade is part of a package or strategy",
+        actual:"Blank — package identifier derivation rule absent; package trades not identified"},
+      {field:"2_56_exchange_rate",    label:"Exchange rate basis",             failures:205,  pct:4,
+        expected:"Exchange rate basis populated when FX component present in the trade",
+        actual:"Blank — conditionality rule for FX exchange rate basis not triggered correctly"},
+      {field:"1_3_entity_reporting",  label:"Entity responsible for reporting",failures:68,   pct:1,
+        expected:"Valid LEI matching entity responsible for reporting — same as submitting entity",
+        actual:"Mismatches Counterparty 1 ID — derivation picks wrong source field for 68 records"},
     ]},
 
   { id:"RC-F", severity:"medium",
@@ -1395,9 +1441,15 @@ const MACRO_CLUSTERS = [
     pattern:"Cross-regime — single ref-data fix resolves both regimes",
     benchmarkNote:"Quick win: single ref-data fix resolves 2 regimes simultaneously — lowest complexity cross-regime cluster",
     fieldBreakdown:[
-      {field:"1_9_cpty_2_id",         label:"Counterparty 2 (EU EMIR)",           failures:438, pct:8},
-      {field:"1_76_receiver_id_leg2", label:"Receiver ID — Leg 2 (CFTC)",         failures:457, pct:9},
-      {field:"1_74_payer_id_leg2",    label:"Payer ID — Leg 2 (CFTC)",            failures:455, pct:9},
+      {field:"1_9_cpty_2_id",         label:"Counterparty 2 (EU EMIR)",           failures:438, pct:8,
+        expected:"Current valid LEI for counterparty 2 in GLEIF registry",
+        actual:"Pre-merger identifier submitted — entity merged but counterparty ref-data not updated"},
+      {field:"1_76_receiver_id_leg2", label:"Receiver ID — Leg 2 (CFTC)",         failures:457, pct:9,
+        expected:"Current LEI or national ID of the Leg 2 receiver",
+        actual:"Stale identifier — same counterparty, CFTC field path maps to same stale ref-data entry"},
+      {field:"1_74_payer_id_leg2",    label:"Payer ID — Leg 2 (CFTC)",            failures:455, pct:9,
+        expected:"Current LEI or national ID of the Leg 2 payer",
+        actual:"Stale identifier — same underlying ref-data gap as receiver field (single table fix resolves both)"},
     ]},
 ];
 
@@ -1989,38 +2041,57 @@ const MacroView=({onLaunch})=>{
                     const barW=maxFailures>0?(f.failures/maxFailures)*100:0;
                     const isShared=(SHARED_FIELD_MAP[f.field]||[]).length>1;
                     return(
-                      <div key={f.field}>
-                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
+                      <div key={f.field} style={{
+                        paddingBottom:12,marginBottom:4,
+                        borderBottom:`1px solid ${C.line}`,
+                      }}>
+                        {/* field name + count */}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0,flex:1}}>
-                            <span style={{
-                              fontSize:12,fontWeight:700,color:C.ink,
-                              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-                            }}>{f.label}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:C.ink}}>{f.label}</span>
                             {isShared&&(
-                              <span style={{
-                                fontSize:8,fontWeight:700,color:C.blue,
-                                background:C.blueT2,padding:"1px 5px",borderRadius:3,
-                                flexShrink:0,
-                              }}>shared</span>
+                              <span style={{fontSize:8,fontWeight:700,color:C.blue,background:C.blueT2,padding:"1px 5px",borderRadius:3,flexShrink:0}}>shared</span>
                             )}
                           </div>
-                          <div style={{display:"flex",alignItems:"baseline",gap:6,flexShrink:0,marginLeft:8}}>
-                            <span style={{fontSize:13,fontWeight:800,color:sev.col}}>{f.failures.toLocaleString()}</span>
+                          <div style={{display:"flex",alignItems:"baseline",gap:5,flexShrink:0,marginLeft:8}}>
+                            <span style={{fontSize:14,fontWeight:800,color:sev.col}}>{f.failures.toLocaleString()}</span>
                             <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>{f.pct}%</span>
                           </div>
                         </div>
-                        <div style={{position:"relative",height:6,background:C.muted,borderRadius:3}}>
-                          <div style={{
-                            position:"absolute",left:0,top:0,bottom:0,
-                            width:`${barW}%`,
-                            background:sev.col,borderRadius:3,
-                            opacity:0.85,
-                          }}/>
+
+                        {/* bar */}
+                        <div style={{height:5,background:C.muted,borderRadius:3,marginBottom:7}}>
+                          <div style={{width:`${barW}%`,height:"100%",background:sev.col,borderRadius:3,opacity:0.85}}/>
                         </div>
-                        <div style={{
-                          fontSize:9,color:C.ink3,marginTop:3,
-                          fontFamily:"ui-monospace,monospace",fontWeight:500,
-                        }}>{f.field}</div>
+
+                        {/* field key */}
+                        <div style={{fontSize:9,color:C.ink3,fontFamily:"ui-monospace,monospace",marginBottom:7}}>{f.field}{f.rule?` · ${f.rule}`:""}</div>
+
+                        {/* expected / actual */}
+                        {(f.expected||f.actual)&&(
+                          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                            {f.expected&&(
+                              <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                                <span style={{
+                                  fontSize:9,fontWeight:700,color:"#166534",
+                                  background:"#DCFCE7",padding:"1px 6px",borderRadius:3,
+                                  flexShrink:0,marginTop:1,letterSpacing:"0.02em",
+                                }}>EXPECTED</span>
+                                <span style={{fontSize:10,color:"#166534",lineHeight:1.5}}>{f.expected}</span>
+                              </div>
+                            )}
+                            {f.actual&&(
+                              <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                                <span style={{
+                                  fontSize:9,fontWeight:700,color:sev.col,
+                                  background:sev.bg,padding:"1px 6px",borderRadius:3,
+                                  flexShrink:0,marginTop:1,letterSpacing:"0.02em",
+                                }}>ACTUAL</span>
+                                <span style={{fontSize:10,color:sev.col,lineHeight:1.5}}>{f.actual}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
