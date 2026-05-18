@@ -3158,16 +3158,42 @@ const EoSection=({num,title,children,open:initOpen=false})=>{
   );
 };
 
+// ── Compact lineage (inline, used in Done/Submitted screens) ─────────────────
+const CompactLineage=({chain,breakAt})=>(
+  <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:3,
+    padding:"7px 9px",background:C.surface,borderRadius:6,border:`1px solid ${C.line}`}}>
+    {chain.map((node,i)=>(
+      <React.Fragment key={i}>
+        {i>0&&<span style={{color:C.line2,fontSize:9,lineHeight:1}}>→</span>}
+        <span style={{padding:"2px 6px",borderRadius:3,whiteSpace:"nowrap",
+          fontSize:9,fontWeight:600,
+          background:i===breakAt?C.redBg:C.muted,
+          border:`1px solid ${i===breakAt?C.red+"55":C.line}`,
+          color:i===breakAt?C.red:C.ink3}}>
+          {i===breakAt&&"⚠ "}{node}
+        </span>
+      </React.Fragment>
+    ))}
+  </div>
+);
+
 // ── Done ──────────────────────────────────────────────────────────────────────
 const SubmittedScreen=({jira,onRestart})=>{
   const [tick,setTick]=useState(false);
   useEffect(()=>{setTimeout(()=>setTick(true),120);},[]);
-  const steps=[
-    {done:true,  label:"Remediation pack assembled",      detail:"691 records ready for back-report · all three plans reviewed"},
-    {done:true,  label:"E&O notification pre-filled",   detail:"En:ACT prepared draft · requires Compliance sign-off before filing"},
-    {done:true,  label:"Compliance ticket raised",       detail:`${jira?.id||"RR-2042"} · Assigned to ${jira?.assignee||"Sarah Chen · Compliance"}`},
-    {done:false, label:"Compliance review & sign-off",  detail:"Est. 5–10 business days · FX-RC3 valuation tolerance decision"},
-    {done:false, label:"Back-report to TRACC",           detail:"Pending Compliance sign-off · 691 + 4,812 records"},
+  const planActions=[
+    { plan:PLAN_ITEMS[0], rc:ROOT_CAUSES[0],
+      owner:"Ref data team", ownerCol:C.blue, ownerBg:C.blueT2,
+      status:"Awaiting action", statusCol:C.blue, statusBg:C.blueT2,
+      nextAction:"Confirm the 3 proposed LEI mappings from GLEIF and update broker_code_lei_ref_dict (v1.4 → v1.5). Spot-check at least 10% of the 415 corrected records before back-reporting."},
+    { plan:PLAN_ITEMS[1], rc:ROOT_CAUSES[1],
+      owner:"Dev team", ownerCol:C.amber, ownerBg:C.amberBg,
+      status:"Awaiting action", statusCol:C.blue, statusBg:C.blueT2,
+      nextAction:"Implement the intragroup_flag conditional in the 1_17 derivation rule spec (v2.1 → v2.2), deploy via standard change process, then reprocess 184 affected records for Hartwell Lynch and Pemberton Chase."},
+    { plan:PLAN_ITEMS[2], rc:ROOT_CAUSES[2],
+      owner:"Compliance", ownerCol:C.red, ownerBg:C.redBg,
+      status:"Blocked — sign-off required", statusCol:C.amber, statusBg:C.amberBg,
+      nextAction:"Review the 312 records above the 0.01% valuation tolerance threshold and decide: notify counterparties proactively, adjust tolerance, or accept reconciliation breaks. E&O draft REF-2026-RC3 requires filing decision."},
   ];
   return(
     <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
@@ -3219,36 +3245,56 @@ const SubmittedScreen=({jira,onRestart})=>{
           ))}
         </div>
 
-        {/* ── What happens next ── */}
+        {/* ── Open actions by root cause ── */}
         <div style={{background:"#fff",border:`1px solid ${C.line}`,borderRadius:12,overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.ink}}>What happens next</div>
+          <div style={{padding:"13px 20px",borderBottom:`1px solid ${C.line}`,background:C.muted,
+            display:"flex",alignItems:"center",gap:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.ink}}>Open actions</div>
+            <Pill bg={C.amberBg} fg={C.amber}>3 plans in progress</Pill>
+            <div style={{flex:1}}/>
+            <span style={{fontSize:10,color:C.ink3}}>Ref data · Dev team · Compliance</span>
           </div>
-          <div style={{padding:"8px 0"}}>
-            {steps.map((s,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"12px 20px",
-                borderBottom:i<steps.length-1?`1px solid ${C.line}`:"none"}}>
-                {/* step indicator */}
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,paddingTop:2}}>
-                  <div style={{
-                    width:22,height:22,borderRadius:999,
-                    background:s.done?C.green:C.muted,
-                    border:`2px solid ${s.done?C.green:C.line2}`,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontSize:10,fontWeight:800,color:s.done?"#fff":C.ink3}}>
-                    {s.done?"✓":i+1}
-                  </div>
-                  {i<steps.length-1&&<div style={{width:2,height:20,background:s.done?`${C.green}44`:C.line,marginTop:3}}/>}
+          {planActions.map(({plan,rc,owner,ownerCol,ownerBg,status,statusCol,statusBg,nextAction},i)=>{
+            const sevCol=plan.severity==="High"?C.red:plan.severity==="Medium"?C.amber:C.green;
+            const sevBg=plan.severity==="High"?C.redBg:plan.severity==="Medium"?C.amberT:C.greenBg;
+            return(
+              <div key={plan.id} style={{padding:"14px 20px",
+                borderBottom:i<planActions.length-1?`1px solid ${C.line}`:"none",
+                background:i%2===0?"#fff":"#FAFBFC"}}>
+                {/* header row */}
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                  <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,
+                    background:sevBg,color:sevCol,textTransform:"uppercase",letterSpacing:"0.05em"}}>{plan.id}</span>
+                  <span style={{fontSize:10,fontWeight:600,color:sevCol}}>{plan.severity}</span>
+                  <span style={{fontSize:10,color:C.ink3}}>·</span>
+                  <span style={{fontSize:10,color:C.ink2,fontWeight:600}}>{plan.records.toLocaleString()} records</span>
+                  <span style={{fontSize:10,color:C.ink3}}>·</span>
+                  <span style={{fontSize:10,color:C.ink2}}>{plan.eta}</span>
+                  <div style={{flex:1}}/>
+                  <Pill bg={ownerBg} fg={ownerCol} style={{fontSize:9}}>{owner}</Pill>
+                  <Pill bg={statusBg} fg={statusCol} style={{fontSize:9}}>{status}</Pill>
                 </div>
-                <div style={{flex:1,paddingBottom:4}}>
-                  <div style={{fontSize:12,fontWeight:600,color:s.done?C.ink:C.ink2,lineHeight:1.35}}>{s.label}</div>
-                  <div style={{fontSize:11,color:C.ink2,marginTop:2,lineHeight:1.5}}>{s.detail}</div>
+                {/* title */}
+                <div style={{fontSize:12,fontWeight:700,color:C.ink,marginBottom:7,lineHeight:1.4}}>
+                  {rc.title}
                 </div>
-                {s.done&&<Pill bg={C.greenBg} fg={C.green} style={{flexShrink:0,marginTop:2}}>Done</Pill>}
-                {!s.done&&i===3&&<Pill bg={C.amberBg} fg={C.amber} style={{flexShrink:0,marginTop:2}}>In progress</Pill>}
+                {/* lineage */}
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:8,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                    letterSpacing:"0.07em",marginBottom:4}}>Data lineage · failure point</div>
+                  <CompactLineage chain={rc.chain} breakAt={rc.breakAt}/>
+                </div>
+                {/* next action */}
+                <div style={{padding:"9px 11px",
+                  background:plan.id==="P3"?C.amberT:C.blueT2,
+                  borderRadius:7,borderLeft:`3px solid ${plan.id==="P3"?C.amber:C.blue}`,
+                  fontSize:11,color:C.ink,lineHeight:1.55}}>
+                  <span style={{fontWeight:700,color:plan.id==="P3"?C.amber:C.blue}}>Next action: </span>
+                  {nextAction}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
         {/* ── footer actions ── */}
@@ -3317,105 +3363,102 @@ const DoneScreen=({onRestart})=>{
         <div style={{flex:"0 0 440px",flexShrink:0,borderRight:`1px solid ${C.line}`,
           display:"flex",flexDirection:"column",background:"#fff",overflow:"hidden"}}>
 
-          {/* applied */}
-          <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.line}`,background:C.greenT,flexShrink:0}}>
+          {/* plan list header */}
+          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.line}`,background:C.greenT,flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,fontWeight:700,color:C.green}}>✓ Plans reviewed &amp; approved</span>
               <Pill bg="#fff" fg={C.green}>3 plans</Pill>
-              <Pill bg="#fff" fg={C.ink2}>691 records</Pill>
+              <Pill bg="#fff" fg={C.ink2}>5,411 records</Pill>
             </div>
           </div>
-          <div style={{flexShrink:0}}>
-            {[
-              {id:"FX-RC1",t:"Update broker_lei_ref_dict",d:"415 records · 1_14_counterparty_2 · FTR 96%",ftr:96},
-              {id:"FX-RC2",t:"Add intragroup_flag → 1_17 rule",d:"184 records · 1_17_cp2_fin_entity_indicator · FTR 91%",ftr:91},
-              {id:"FX-RC4",t:"Rebuild DFR recon feed key",d:"92 records · cascade fix · fully resolved",ftr:81,cascade:true},
-            ].map((r,i)=>(
-              <div key={i} style={{padding:"12px 20px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:12}}>
-                <div style={{width:28,height:28,borderRadius:999,background:C.greenBg,flexShrink:0,
-                  display:"flex",alignItems:"center",justifyContent:"center",color:C.green,fontSize:13,fontWeight:700}}>✓</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{color:C.ink3,fontSize:10,fontWeight:700}}>{r.id}</span>
-                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.t}</span>
-                    {r.cascade&&<Pill bg={C.amberBg} fg={C.amber} style={{fontSize:9,flexShrink:0}}>cascade</Pill>}
-                  </div>
-                  <div style={{fontSize:10,color:C.ink2,marginTop:2}}>{r.d}</div>
-                </div>
-                <div style={{width:36,height:36,flexShrink:0}}>
-                  <svg viewBox="0 0 36 36" width="36" height="36">
-                    <circle cx="18" cy="18" r="15" fill="none" stroke={C.line} strokeWidth="3"/>
-                    <circle cx="18" cy="18" r="15" fill="none" stroke={C.green} strokeWidth="3"
-                      strokeDasharray={`${r.ftr*0.942} 94.2`} strokeLinecap="round"
-                      transform="rotate(-90 18 18)"/>
-                    <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="700" fill={C.green}>{r.ftr}%</text>
-                  </svg>
-                </div>
-              </div>
-            ))}
-          </div>
 
-          {/* pending compliance */}
+          {/* plan cards with lineage */}
           <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
-            <div style={{padding:"12px 20px",borderBottom:`1px solid ${C.line}`,background:C.amberT,flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:12,fontWeight:700,color:C.amber}}>⚠ Pending Compliance review</span>
-              <Pill bg={C.redBg} fg={C.red} style={{fontSize:9}}>blocks back-reporting</Pill>
-            </div>
-            <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-                <div style={{width:36,height:36,borderRadius:999,background:C.amberBg,flexShrink:0,
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>👤</div>
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                    <span style={{fontSize:11,fontWeight:700}}>FX-RC3</span>
-                    <Pill bg={C.muted} fg={C.ink2} style={{fontSize:9}}>ISS-1289</Pill>
-                  </div>
-                  <div style={{fontSize:12,fontWeight:600,lineHeight:1.4}}>6dp precision on DFR Original_TargetAmount → 1_31_notional_amt_leg_1</div>
-                </div>
-              </div>
+            {PLAN_ITEMS.map((p,idx)=>{
+              const rc=ROOT_CAUSES.find(r=>r.id===p.rcId);
+              const sevCol=p.severity==="High"?C.red:p.severity==="Medium"?C.amber:C.green;
+              const sevBg=p.severity==="High"?C.redBg:p.severity==="Medium"?C.amberT:C.greenBg;
+              const isBlocked=p.id==="P3";
+              const owner=p.id==="P1"?"Ref data team":p.id==="P2"?"Dev team":"Compliance";
+              return(
+                <div key={p.id} style={{padding:"14px 20px",
+                  borderBottom:idx<PLAN_ITEMS.length-1?`1px solid ${C.line}`:"none",
+                  background:"#fff"}}>
 
-              <div style={{padding:10,background:C.amberT,borderRadius:7,borderLeft:`3px solid ${C.amber}`,fontSize:11,color:C.ink,lineHeight:1.55}}>
-                Precision change may breach valuation tolerance on 312 records against counterparty submissions.
-                Also check 1_31_notional_amt_leg_2 (Original_SettlementAmount — same pipeline).
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {[["Records","4,812"],["FTR score","88%"],["Field","1_31_notional_amt_leg_1"],["Dependency","1_31_notional_amt_leg_2 ⚠"]].map(([l,v],i)=>(
-                  <div key={i} style={{padding:"8px 10px",background:C.muted,borderRadius:7}}>
-                    <div style={{fontSize:9,color:C.ink3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
-                    <div style={{fontSize:11,fontWeight:600,marginTop:2,wordBreak:"break-all"}}>{v}</div>
+                  {/* header */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                    <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,
+                      background:sevBg,color:sevCol,textTransform:"uppercase",letterSpacing:"0.04em"}}>{p.id}</span>
+                    <span style={{fontSize:10,fontWeight:600,color:sevCol}}>{p.severity}</span>
+                    <span style={{fontSize:10,color:C.ink3}}>·</span>
+                    <span style={{fontSize:10,color:C.ink2,fontWeight:600}}>{p.rcId}</span>
+                    <div style={{flex:1}}/>
+                    {isBlocked
+                      ? <Pill bg={C.amberBg} fg={C.amber} style={{fontSize:9}}>⚠ Pending Compliance</Pill>
+                      : <Pill bg={C.greenBg} fg={C.green} style={{fontSize:9}}>✓ Ready</Pill>}
                   </div>
-                ))}
-              </div>
 
-              {/* Jira row */}
-              <div style={{padding:12,borderRadius:8,border:`1px solid ${jira&&jira.id?C.green+"55":C.line}`,
-                background:jira&&jira.id?C.greenT:"#fff",display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:26,height:26,borderRadius:6,background:"#0052CC",color:"#fff",flexShrink:0,
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>J</div>
-                {jira===null&&(
-                  <><div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700}}>Route to Compliance via Jira</div>
-                    <div style={{fontSize:10,color:C.ink2}}>Pre-filled · sign-off required to submit E&amp;O</div>
+                  {/* title */}
+                  <div style={{fontSize:12,fontWeight:700,color:C.ink,lineHeight:1.4,marginBottom:8}}>
+                    {rc?.title}
                   </div>
-                  <Btn variant="primary" size="sm" onClick={raiseJira}>Raise ticket →</Btn></>
-                )}
-                {jira==="raising"&&(
-                  <><div style={{flex:1,fontSize:11,fontWeight:600}}>Creating ticket…</div>
-                  <AIStar size={16} colour={C.blue} spin/></>
-                )}
-                {jira&&jira.id&&(
-                  <><div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:11,fontWeight:700,color:C.green}}>✓ Ticket raised</span>
-                      <Pill bg="#fff" fg={C.blue}>{jira.id}</Pill>
+
+                  {/* lineage */}
+                  {rc?.chain&&(
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:8,fontWeight:700,color:C.ink3,textTransform:"uppercase",
+                        letterSpacing:"0.07em",marginBottom:4}}>Data lineage · break point</div>
+                      <CompactLineage chain={rc.chain} breakAt={rc.breakAt}/>
                     </div>
-                    <div style={{fontSize:10,color:C.ink2,marginTop:1}}>{jira.assignee} · High priority</div>
+                  )}
+
+                  {/* meta pills */}
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:isBlocked?8:0}}>
+                    <Pill bg={C.muted} fg={C.ink2} style={{fontSize:9}}>{p.records.toLocaleString()} records</Pill>
+                    <Pill bg={C.blueT2} fg={C.blue} style={{fontSize:9}}>{p.eta}</Pill>
+                    <Pill bg={C.muted} fg={C.ink3} style={{fontSize:9}}>Owner: {owner}</Pill>
                   </div>
-                  <Btn variant="default" size="sm">Open ↗</Btn></>
-                )}
-              </div>
-            </div>
+
+                  {/* P3 tolerance warning */}
+                  {isBlocked&&(
+                    <div style={{padding:"8px 10px",background:C.amberT,borderRadius:7,
+                      borderLeft:`3px solid ${C.amber}`,fontSize:11,color:C.ink,lineHeight:1.55,marginBottom:8}}>
+                      312 records exceed 0.01% valuation tolerance — Compliance decision required before back-reporting to VBK AG, Castleford Bank, and Rheinfeld Bank AG.
+                    </div>
+                  )}
+
+                  {/* Jira row (P3 only) */}
+                  {isBlocked&&(
+                    <div style={{padding:10,borderRadius:7,border:`1px solid ${jira&&jira.id?C.green+"55":C.line}`,
+                      background:jira&&jira.id?C.greenT:"#fff",display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:22,height:22,borderRadius:5,background:"#0052CC",color:"#fff",flexShrink:0,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>J</div>
+                      {jira===null&&(
+                        <><div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:700}}>Route to Compliance via Jira</div>
+                          <div style={{fontSize:10,color:C.ink2}}>Pre-filled · sign-off required to file E&amp;O</div>
+                        </div>
+                        <Btn variant="primary" size="sm" onClick={raiseJira}>Raise ticket →</Btn></>
+                      )}
+                      {jira==="raising"&&(
+                        <><div style={{flex:1,fontSize:11,fontWeight:600}}>Creating ticket…</div>
+                        <AIStar size={16} colour={C.blue} spin/></>
+                      )}
+                      {jira&&jira.id&&(
+                        <><div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:11,fontWeight:700,color:C.green}}>✓ Ticket raised</span>
+                            <Pill bg="#fff" fg={C.blue}>{jira.id}</Pill>
+                          </div>
+                          <div style={{fontSize:10,color:C.ink2,marginTop:1}}>{jira.assignee} · High priority</div>
+                        </div>
+                        <Btn variant="default" size="sm">Open ↗</Btn></>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* left footer */}
