@@ -345,23 +345,22 @@ const Clock=()=>{
 const Tracker=({stage})=>{
   const steps=[
     {id:"root", label:"Root Cause"},
-    {id:"plan", label:"Rem Plan"},
     {id:"sim",  label:"Simulation"},
+    {id:"plan", label:"Rem Plan"},
   ];
   const stateOf=id=>{
-    if(stage==="idle")         return "pending";
+    if(stage==="macro")        return "pending";
     if(stage==="running:root") return id==="root"?"running":"pending";
     if(stage==="review:root")  return id==="root"?"review":"pending";
-    if(stage==="running:rem")  return id==="root"?"done":id==="plan"?"running":"pending";
-    if(stage==="plan")         return id==="root"?"done":id==="plan"?"active":"pending";
-    if(stage==="remediation")  return id==="sim"?"active":"done";
+    if(stage==="remediation")  return id==="root"?"done":id==="sim"?"active":"pending";
+    if(stage==="plan")         return id==="plan"?"active":"done";
     if(stage==="done")         return "done";
     return "pending";
   };
   const colOf=id=>{
     const st=stateOf(id);
     if(st==="done") return C.green;
-    if(st==="running"||st==="active") return id==="root"?A.root.colour:id==="plan"?A.rem.colour:C.blue;
+    if(st==="running"||st==="active") return id==="root"?A.root.colour:id==="sim"?C.blue:A.rem.colour;
     if(st==="review") return A.root.colour;
     return C.line2;
   };
@@ -776,11 +775,11 @@ const ReviewRoot=({onNext,onCancel})=>{
         <div style={{display:"flex",alignItems:"center",gap:16}}>
           <Glyph a={A.root} size={44}/>
           <div style={{flex:1}}>
-            <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Step 1 · Autonomous Root Cause</div>
-            <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>Review and select root causes to remediate</div>
+            <div style={{fontSize:11,color:A.root.colour,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Root Cause Analysis complete</div>
+            <div style={{fontSize:22,fontWeight:700,marginTop:4,letterSpacing:"-0.01em"}}>Review and select root causes to simulate</div>
             <div style={{fontSize:12,color:C.ink2,marginTop:6}}>Select the issues you want to fix — deselect any you want to defer for now</div>
           </div>
-          <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
+          <Btn variant="ghost" size="sm" onClick={onCancel}>← Issue map</Btn>
         </div>
       </div>
 
@@ -1107,7 +1106,7 @@ const ReviewRoot=({onNext,onCancel})=>{
         )}
         <div style={{flex:1}}/>
         <Btn variant="primary" size="md" disabled={selList.length===0} onClick={onNext}>
-          Run Intelligent Remediation →
+          Proceed to simulation →
         </Btn>
       </div>
     </div>
@@ -2608,7 +2607,7 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
         <div>
           <div style={{fontSize:18,fontWeight:700,color:C.ink,lineHeight:1.2}}>Remediation plan</div>
           <div style={{fontSize:12,color:C.ink3,marginTop:3}}>
-            3 root causes · 5,411 records · 2 E&O notifications pre-populated
+            Simulation complete · 3 fix plans · 5,411 records · 2 E&O notifications pre-populated
             {approvedCount>0&&<span style={{marginLeft:8,color:C.green,fontWeight:600}}>· {approvedCount}/{PLAN_ITEMS.length} approved</span>}
           </div>
         </div>
@@ -2616,7 +2615,7 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
           <button onClick={onBack}
             style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${C.line}`,
               background:"#fff",color:C.ink2,fontSize:13,fontWeight:500,cursor:"pointer"}}>
-            ← Back
+            ← Back to simulation
           </button>
           <button onClick={()=>allApproved&&onApprove()} disabled={!allApproved}
             style={{padding:"9px 22px",borderRadius:8,border:"none",
@@ -2624,7 +2623,7 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
               fontSize:13,fontWeight:600,cursor:allApproved?"pointer":"not-allowed",
               boxShadow:allApproved?`0 2px 16px ${C.blue}55`:"none",
               transition:"all .2s"}}>
-            Run simulation →
+            Confirm &amp; complete →
           </button>
         </div>
       </div>
@@ -2760,7 +2759,7 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
             </div>
             {!allApproved&&(
               <div style={{fontSize:10,color:C.ink3,marginTop:6,textAlign:"center"}}>
-                Approve all 3 fix plans to unlock simulation
+                Approve all 3 fix plans to complete
               </div>
             )}
           </div>
@@ -2872,7 +2871,7 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
           <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation</div>
           <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Simulate and apply fixes to your data</div>
         </div>
-        <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root causes</Btn>
+        <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root cause review</Btn>
         <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
       </div>
 
@@ -2956,7 +2955,7 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
                   backgroundSize:"200% 100%",
                   backgroundAnimation:"gradientMove 3s ease infinite"}:{})}}
               disabled={!canApply} onClick={onApply}>
-              ✓ Apply safe fixes &amp; finish
+              ✓ Apply safe fixes → Rem Plan
             </Btn>
             <div style={{fontSize:11,textAlign:"center",color:
               !resVals.length?C.ink3:hasUnresolvedCascade?C.amber:!allSimulated?C.ink3:C.green}}>
@@ -3255,7 +3254,7 @@ const SubmittedScreen=({jira,onRestart})=>{
 
         {/* ── footer actions ── */}
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-          <Btn variant="default" size="md" onClick={onRestart}>← Return to overview</Btn>
+          <Btn variant="default" size="md" onClick={onRestart}>← Return to issue map</Btn>
           <Btn variant="default" size="md">↓ Download audit pack</Btn>
           <Btn variant="soft" size="md">Open Jira ticket ↗</Btn>
         </div>
@@ -3635,63 +3634,90 @@ function App(){
   const [stage,   setStage   ]=useState("macro");
   const [cascade, setCascade ]=useState(true);
 
-  const startAgent=id=>{
-    setStage(`running:${id}`);
-    setTimeout(()=>setStage(id==="root"?"review:root":"plan"),A[id].duration);
+  const runRootCause=()=>{
+    setStage("running:root");
+    setTimeout(()=>setStage("review:root"), A.root.duration);
   };
 
+  // active sidebar item per stage
+  const sidebarActive=stage=>{
+    if(stage==="macro")                         return "Issue map";
+    if(stage==="running:root"||stage==="review:root") return "Root Cause";
+    if(stage==="remediation")                   return "Simulation";
+    if(stage==="plan")                          return "Rem Plan";
+    if(stage==="done")                          return "Rem Plan";
+    return "Issue map";
+  };
+  const active=sidebarActive(stage);
+
+  const navItems=[
+    {section:null,    items:[{label:"Issue map",icon:"⬡"},{label:"Accuracy",icon:"◎"},{label:"Completeness",icon:"◑"},{label:"Timeliness",icon:"◷"},{label:"Benchmarking",icon:"↗"}]},
+    {section:"Re:ACT",items:[{label:"Root Cause",icon:"⌥"},{label:"Simulation",icon:"▷"},{label:"Rem Plan",icon:"✦"}]},
+  ];
+
   const sidebar=(
-    <div style={{width:200,background:C.navy,color:"#fff",padding:"22px 16px",display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"0 4px 18px",borderBottom:"1px solid #ffffff20",marginBottom:14}}>
+    <div style={{width:200,background:C.navy,color:"#fff",padding:"22px 0 16px",display:"flex",flexDirection:"column",gap:0,flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"0 16px 18px",borderBottom:"1px solid #ffffff18",marginBottom:10}}>
         <AIStar size={16} colour="#fff"/>
-        <span style={{fontSize:14,fontWeight:700}}>En>ACT</span>
+        <span style={{fontSize:14,fontWeight:700}}>En&gt;ACT</span>
       </div>
-      {["Overview","Accuracy","Completeness","Timeliness","Benchmarking"].map((n,i)=>(
-        <div key={i} style={{padding:"8px 10px",borderRadius:6,background:i===0?"#ffffff15":"transparent",fontSize:12,color:i===0?"#fff":"#ffffffb0",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-          <span style={{width:8,height:8,borderRadius:2,background:"#ffffff40"}}/>{n}
-        </div>
-      ))}
-      <div style={{marginTop:16,marginBottom:6,fontSize:9,color:"#ffffff60",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:10}}>Re:ACT</div>
-      {["Issue management","Remediation","Sign-off"].map((n,i)=>(
-        <div key={i} style={{padding:"8px 10px",fontSize:12,color:"#ffffffb0",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-          <span style={{width:8,height:8,borderRadius:2,background:"#ffffff40"}}/>{n}
+      {navItems.map(({section,items})=>(
+        <div key={section||"main"}>
+          {section&&(
+            <div style={{fontSize:9,color:"#ffffff50",textTransform:"uppercase",letterSpacing:"0.1em",padding:"14px 16px 6px"}}>{section}</div>
+          )}
+          {items.map(({label,icon})=>{
+            const isActive=label===active;
+            const isDone=(label==="Root Cause"&&["remediation","plan","done"].includes(stage))||
+                         (label==="Simulation"&&["plan","done"].includes(stage));
+            return(
+              <div key={label} style={{
+                display:"flex",alignItems:"center",gap:9,
+                padding:"8px 16px",cursor:"pointer",
+                background:isActive?"#ffffff18":"transparent",
+                borderLeft:isActive?`3px solid ${C.blue}`:"3px solid transparent",
+                transition:"background 120ms",
+              }}>
+                <span style={{fontSize:12,opacity:0.7,width:14,textAlign:"center"}}>{isDone?"✓":icon}</span>
+                <span style={{fontSize:12,fontWeight:isActive?700:400,color:isActive?"#fff":isDone?"#ffffffa0":"#ffffffb0"}}>{label}</span>
+                {isActive&&stage.startsWith("running")&&(
+                  <span style={{marginLeft:"auto",width:6,height:6,borderRadius:999,background:C.blue,animation:"aiPulse 1.4s ease-in-out infinite"}}/>
+                )}
+              </div>
+            );
+          })}
         </div>
       ))}
       <div style={{flex:1}}/>
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:10,border:"1px solid #ffffff20",borderRadius:8}}>
-        <div style={{width:26,height:26,borderRadius:999,background:"#5EA0DF",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>MB</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:10,margin:"0 12px",border:"1px solid #ffffff18",borderRadius:8}}>
+        <div style={{width:26,height:26,borderRadius:999,background:"#5EA0DF",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>SC</div>
         <div>
           <div style={{fontSize:12,fontWeight:600}}>Sarah Chen</div>
-          <div style={{fontSize:10,opacity:.6}}>Whale Capital</div>
+          <div style={{fontSize:10,opacity:.5}}>Whale Capital</div>
         </div>
       </div>
     </div>
   );
+
+  // tracker only shown after macro
+  const showTracker=stage!=="macro";
 
   return(
     <div style={{width:"100%",height:"100vh",display:"flex",overflow:"hidden",background:C.surface}}>
       <TweaksPanel cascadeOn={cascade} setCascade={setCascade}/>
       {sidebar}
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,overflow:"hidden",position:"relative"}}>
-        <div style={{padding:"14px 36px 0",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-          <Tracker stage={stage}/>
-          <Clock/>
-        </div>
-        {stage==="macro"       &&<MacroView onLaunch={()=>setStage("idle")}/>}
-        {stage==="idle"        &&<Overview onTrigger={()=>startAgent("root")}/>}
-        {stage==="running:root"&&<AgentRunning agent={A.root}/>}
-        {stage==="review:root" &&<ReviewRoot onNext={()=>startAgent("rem")} onCancel={()=>setStage("idle")}/>}
-        {stage==="running:rem" &&(
-          <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}>
-            <div style={{flex:"0 0 480px",overflow:"hidden",pointerEvents:"none",opacity:.5,position:"relative",borderRight:`1px solid ${C.line}`}}>
-              <ReviewRoot onNext={()=>{}} onCancel={()=>{}}/>
-            </div>
-            <AgentRunning agent={A.rem}/>
+        {showTracker&&(
+          <div style={{padding:"14px 36px 0",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <Tracker stage={stage}/>
           </div>
         )}
-        {stage==="plan"        &&<RemPlanScreen onApprove={()=>setStage("remediation")} onBack={()=>setStage("review:root")} onCancel={()=>setStage("idle")}/>}
-        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("done")} onBack={()=>setStage("plan")} onCancel={()=>setStage("idle")}/>}
-        {stage==="done"        &&<DoneScreen onRestart={()=>setStage("idle")}/>}
+        {stage==="macro"       &&<MacroView onLaunch={runRootCause}/>}
+        {stage==="running:root"&&<AgentRunning agent={A.root}/>}
+        {stage==="review:root" &&<ReviewRoot onNext={()=>setStage("remediation")} onCancel={()=>setStage("macro")}/>}
+        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("plan")} onBack={()=>setStage("review:root")} onCancel={()=>setStage("macro")}/>}
+        {stage==="plan"        &&<RemPlanScreen onApprove={()=>setStage("done")} onBack={()=>setStage("remediation")} onCancel={()=>setStage("macro")}/>}
+        {stage==="done"        &&<DoneScreen onRestart={()=>setStage("macro")}/>}
       </div>
     </div>
   );
