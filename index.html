@@ -351,7 +351,7 @@ const Tracker=({stage})=>{
   const stateOf=id=>{
     if(stage==="macro")        return id==="root"?"active":"pending";
     if(stage==="running:root") return id==="root"?"running":"pending";
-    if(stage==="review:root")  return id==="root"?"review":"pending";
+    if(stage==="review:root")  return id==="root"?"done":id==="sim"?"active":"pending";
     if(stage==="remediation")  return id==="root"?"done":id==="sim"?"active":"pending";
     if(stage==="plan")         return id==="plan"?"active":"done";
     if(stage==="done")         return "done";
@@ -1272,6 +1272,7 @@ const MACRO_CLUSTERS = [
     eta:"2–3 days",
     quickWin:false,
     testCount:13,
+    chain:["Source system","Entity ID enrichment","⚠ GLEIF lookup / ref dict","Identity fields (1_2, 1_4, 1_9)","EU EMIR report"], breakAt:2,
     summary:"Every single submission fails on core LEI and entity identifier fields — 100% population impact. All 5,661 submissions carry stale or invalid party identifiers. Root cause is likely a broken enrichment step or stale reference table upstream of the reporting pipeline.",
     whyItFails:"Reported LEI values fail GLEIF database validation. The reference dictionary used for entity ID lookups hasn't been refreshed — status codes 'Issued', 'Lapsed', 'Pending transfer' expected but not present. Linked to validation rules EMIR-VR-1002-01 through EMIR-VR-1002-03.",
     regimes:["EU EMIR"],
@@ -1311,6 +1312,7 @@ const MACRO_CLUSTERS = [
     eta:"1–2 weeks",
     quickWin:false,
     testCount:93,
+    chain:["Trade data","Derivation engine","⚠ Reg text logic gap","Derived fields (buyer/seller/CCY)","CFTC / MiFIR report"], breakAt:2,
     summary:"62 fields failing across CFTC P45 and EU MiFIR through the same structural gap — derived field and conditionality logic misinterprets regulatory text. Largest cluster by test count: 93 tests failing across 62 fields. Same root cause, different field paths per regime.",
     whyItFails:"Derivation rules for branch country codes, decision maker IDs, and currency fields don't correctly implement the regulatory text — particularly around buyer/seller branch logic. The interpretation gap produces incorrect or blank values across both regimes.",
     regimes:["CFTC P45","EU MiFIR"],
@@ -1348,6 +1350,7 @@ const MACRO_CLUSTERS = [
     eta:"< 1 day",
     quickWin:true,
     testCount:1,
+    chain:["Trade feed","Format transform step","⚠ ISIN format check (2_7)","Contract info field","EU EMIR report"], breakAt:2,
     summary:"ISIN field is transmitted in a non-compliant format across 85% of submissions. A single test, a single field, a single pipeline — and 84% fix confidence. This is the highest-confidence, lowest-complexity fix available.",
     whyItFails:"ISIN values don't conform to the required 12-character alphanumeric format per regulatory guidance. A formatting step is missing or misconfigured in the transformation layer before submission. Rule: value must be a valid ISIN (12 alphanumeric characters).",
     regimes:["EU EMIR"],
@@ -1371,6 +1374,7 @@ const MACRO_CLUSTERS = [
     eta:"1–2 days",
     quickWin:false,
     testCount:2,
+    chain:["ANNA DSB","Conditionality engine","⚠ UPI lookup branch absent","2_47 delivery / 2_11 asset class","EU EMIR report"], breakAt:2,
     summary:"Delivery type and asset class not correctly populated under UPI conditionality logic. A known Novatus anomaly class — conditional branch absent from the derivation spec. Asset class fix has 100% agent confidence.",
     whyItFails:"Delivery type (2_47) and asset class (2_11) fields require conditional population based on UPI records in the ANNA DSB. The conditionality branch is absent from the derivation rule — producing blank or incorrect values. Delivery type flagged as 'High Concern' in industry benchmarking (97.7% impact).",
     regimes:["EU EMIR"],
@@ -1398,6 +1402,7 @@ const MACRO_CLUSTERS = [
     eta:"3–5 days",
     quickWin:false,
     testCount:8,
+    chain:["Trade data","Derivation rules","⚠ Conditional branch missing","7 conditionality fields","EU EMIR report"], breakAt:2,
     summary:"8 tests failing across 7 fields — all conditionality derivation gaps. UPI alone accounts for 44% of submissions. Fields span contract identifiers, strike price currency, exchange rate basis, and package IDs. UPI is also flagged as 'High Concern' in industry benchmarking.",
     whyItFails:"Conditionality rules for each field are either absent or reference outdated logic. UPI (2_8) has 60% fix confidence — the derivation path is partially known. Strike price currency, package identifier, and exchange rate basis failures are lower impact but consistent, suggesting a batch of missing conditional branches.",
     regimes:["EU EMIR"],
@@ -1432,6 +1437,7 @@ const MACRO_CLUSTERS = [
     eta:"< 1 day",
     quickWin:true,
     testCount:4,
+    chain:["Counterparty ref data","CP2 identifier lookup","⚠ Stale ref-data entry","CP2 ID fields (EU + CFTC)","Regulatory report"], breakAt:2,
     summary:"Counterparty 2 identifier failing in both EU EMIR and CFTC P45 — same ref-data gap, different field paths. A single update to the counterparty reference table resolves both regimes simultaneously. Lowest time-to-fix of all cross-regime clusters.",
     whyItFails:"The counterparty 2 identifier drifts between regimes — EU EMIR uses field 1_9_cpty_2_id while CFTC maps the same party across payer/receiver leg 2 fields. The underlying ref-data source is the same; stale or incorrect entries in the counterparty table propagate to both regime outputs.",
     regimes:["EU EMIR","CFTC P45"],
@@ -2126,6 +2132,14 @@ const MacroView=({onLaunch})=>{
                   <div style={{fontSize:11,color:C.ink2,lineHeight:1.6}}>{c.whyItFails}</div>
                 </div>
 
+                {/* data lineage */}
+                {c.chain&&(
+                  <div>
+                    <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:6}}>Data lineage · failure point</div>
+                    <CompactLineage chain={c.chain} breakAt={c.breakAt}/>
+                  </div>
+                )}
+
                 {/* fix metadata row */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                   {[
@@ -2376,26 +2390,42 @@ const MacroView=({onLaunch})=>{
             borderTop:`1px solid ${C.line}`,
           }}>
 
-            {/* Regime breakdown */}
+            {/* Regime breakdown — donut chart */}
             <div>
               <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,marginTop:12}}>Failures by regime</div>
-              {MACRO_SUMMARY.regimeBreakdown.map((r,i)=>(
-                <div key={r.regime} style={{marginBottom:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                    <span style={{fontSize:11,fontWeight:600,color:C.ink}}>{r.regime}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:C.ink}}>{r.failures.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <div style={{flex:1,height:5,background:C.muted,borderRadius:2}}>
-                      <div style={{
-                        width:`${r.pct}%`,height:"100%",borderRadius:2,
-                        background:i===0?"#e14a37":i===1?"#B45309":C.blue,
-                      }}/>
+              {(()=>{
+                const cols=["#e14a37","#B45309",C.blue];
+                const total=MACRO_SUMMARY.regimeBreakdown.reduce((s,r)=>s+r.failures,0);
+                let angle=-Math.PI/2;
+                const r=32,cx=40,cy=40;
+                const slices=MACRO_SUMMARY.regimeBreakdown.map((d,i)=>{
+                  const sweep=(d.failures/total)*2*Math.PI;
+                  const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+                  angle+=sweep;
+                  const x2=cx+r*Math.cos(angle), y2=cy+r*Math.sin(angle);
+                  return{d:`M${cx},${cy} L${x1},${y1} A${r},${r},0,${sweep>Math.PI?1:0},1,${x2},${y2}Z`,
+                    col:cols[i],label:d.regime,pct:d.pct,failures:d.failures};
+                });
+                return(
+                  <div style={{display:"flex",alignItems:"center",gap:14}}>
+                    <svg width="80" height="80" viewBox="0 0 80 80" style={{flexShrink:0}}>
+                      {slices.map((s,i)=><path key={i} d={s.d} fill={s.col} opacity=".88"/>)}
+                      <circle cx="40" cy="40" r="18" fill="#fff"/>
+                      <text x="40" y="37" textAnchor="middle" fontSize="9" fontWeight="800" fill={C.ink}>72K</text>
+                      <text x="40" y="49" textAnchor="middle" fontSize="7" fill={C.ink3}>failures</text>
+                    </svg>
+                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+                      {slices.map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{width:8,height:8,borderRadius:2,background:s.col,flexShrink:0}}/>
+                          <span style={{fontSize:10,fontWeight:600,color:C.ink,flex:1}}>{s.label}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:s.col}}>{s.pct}%</span>
+                        </div>
+                      ))}
                     </div>
-                    <span style={{fontSize:10,fontWeight:700,color:C.ink3,minWidth:24,textAlign:"right"}}>{r.pct}%</span>
                   </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
 
             {/* Root cause origin */}
@@ -3678,7 +3708,7 @@ function App(){
 
   const runRootCause=()=>{
     setStage("running:root");
-    setTimeout(()=>setStage("review:root"), A.root.duration);
+    setTimeout(()=>setStage("remediation"), A.root.duration);
   };
 
   // active sidebar item per stage
@@ -3756,8 +3786,7 @@ function App(){
         )}
         {stage==="macro"       &&<MacroView onLaunch={runRootCause}/>}
         {stage==="running:root"&&<AgentRunning agent={A.root}/>}
-        {stage==="review:root" &&<ReviewRoot onNext={()=>setStage("remediation")} onCancel={()=>setStage("macro")}/>}
-        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("plan")} onBack={()=>setStage("review:root")} onCancel={()=>setStage("macro")}/>}
+        {stage==="remediation" &&<RemSimScreen cascade={cascade} onApply={()=>setStage("plan")} onBack={()=>setStage("macro")} onCancel={()=>setStage("macro")}/>}
         {stage==="plan"        &&<RemPlanScreen onApprove={()=>setStage("done")} onBack={()=>setStage("remediation")} onCancel={()=>setStage("macro")}/>}
         {stage==="done"        &&<DoneScreen onRestart={()=>setStage("macro")}/>}
       </div>
