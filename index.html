@@ -87,7 +87,7 @@ const C = {
 const AGENTS = [
   { id:"root", name:"Autonomous Root Cause", short:"Root Cause", glyph:"R", colour:"#44709D",
     tagline:"Automatically diagnoses reporting failures across fields, asset classes, counterparties and time periods — so you understand exactly what went wrong before you fix it.", duration:2600 },
-  { id:"rem",  name:"Intelligent Remediation", short:"Rem & Sim", glyph:"F", colour:"#B05D00",
+  { id:"rem",  name:"Intelligent Remediation", short:"Rem & Sim", glyph:"S", colour:"#B05D00",
     tagline:"Generates a prioritised remediation plan, groups issues by root cause, simulates each fix against your data, and pre-populates your E&O notification — ready for Compliance sign-off.", duration:1800 },
 ];
 const A = Object.fromEntries(AGENTS.map(a => [a.id, a]));
@@ -501,10 +501,10 @@ const Overview=({onTrigger})=>(
           <Pill bg={C.redBg} fg={C.red}>21 new</Pill>
         </div>
         {[
-          {sev:"high",  t:"CP2 nature mismatch",    n:"415",      d:"EMIR Refit · 2h ago"},
-          {sev:"high",  t:"CP2 LEI lookup failure", n:"184",      d:"EMIR Refit · 5h ago"},
-          {sev:"medium",t:"Notional precision drift",n:"4,812",   d:"EMIR Refit · 1d ago"},
-          {sev:"low",   t:"Near-miss T+1 window",   n:"3 batches",d:"EMIR Refit · 1d ago"},
+          {sev:"high",  t:"CP2 LEI lookup failure",  n:"415",      d:"EU EMIR · 2h ago"},
+          {sev:"high",  t:"CP2 entity indicator mismatch",n:"184",d:"EU EMIR · 5h ago"},
+          {sev:"medium",t:"Notional precision drift",n:"4,812",   d:"EU EMIR · 1d ago"},
+          {sev:"low",   t:"Near-miss T+1 window",   n:"3 batches",d:"EU EMIR · 1d ago"},
         ].map((r,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?`1px solid ${C.line}`:"none"}}>
             <Sev level={r.sev}/>
@@ -1477,7 +1477,7 @@ const MACRO_SUMMARY = {
   sourceBreakdown:[
     {source:"Regulatory Guidance", failures:55183, pct:76, col:"#e14a37"},
     {source:"Regulatory Text",     failures:12882, pct:18, col:"#B45309"},
-    {source:"Novatus Anomaly",     failures:4345,  pct:6,  col:"#44709D"},
+    {source:"Novatus Anomaly",     failures:4592,  pct:6,  col:"#44709D"},
   ],
   sectionBreakdown:[
     {section:"Parties to the derivative",  failures:40235, pct:55},
@@ -2636,7 +2636,7 @@ const RemPlanScreen=({onApprove,onBack,onCancel})=>{
         <div>
           <div style={{fontSize:18,fontWeight:700,color:C.ink,lineHeight:1.2}}>Remediation plan</div>
           <div style={{fontSize:12,color:C.ink3,marginTop:3}}>
-            Simulation complete · 3 fix plans · 5,411 records · 2 E&O notifications pre-populated
+            Simulation complete · 3 fix plans · 5,411 records · 3 E&O notifications pre-populated
             {approvedCount>0&&<span style={{marginLeft:8,color:C.green,fontWeight:600}}>· {approvedCount}/{PLAN_ITEMS.length} approved</span>}
           </div>
         </div>
@@ -2897,10 +2897,10 @@ const RemSimScreen=({cascade,onApply,onBack,onCancel})=>{
             display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:15}}>S</div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Intelligent Remediation</div>
+          <div style={{fontSize:11,color:A.rem.colour,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Step 2 · Simulation &amp; Remediation</div>
           <div style={{fontSize:18,fontWeight:700,marginTop:2,letterSpacing:"-0.01em"}}>Simulate and apply fixes to your data</div>
         </div>
-        <Btn variant="ghost" size="sm" onClick={onBack}>← Back to root cause review</Btn>
+        <Btn variant="ghost" size="sm" onClick={onBack}>← Back to issue map</Btn>
         <Btn variant="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
       </div>
 
@@ -3330,8 +3330,8 @@ const SubmittedScreen=({jira,onRestart})=>{
         {/* ── footer actions ── */}
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
           <Btn variant="default" size="md" onClick={onRestart}>← Return to issue map</Btn>
-          <Btn variant="default" size="md">↓ Download audit pack</Btn>
-          <Btn variant="soft" size="md">Open Jira ticket ↗</Btn>
+          <Btn variant="default" size="md" onClick={()=>alert("Audit pack download would trigger here — not wired in prototype")}>↓ Download audit pack</Btn>
+          <Btn variant="soft" size="md" onClick={()=>alert("Opens Jira ticket RR-2042 — not wired in prototype")}>Open Jira ticket ↗</Btn>
         </div>
 
       </div>
@@ -3375,7 +3375,7 @@ const DoneScreen=({onRestart})=>{
           {[
             {v:"691",l:"records\nready to back-report",c:C.green,bg:C.greenT},
             {v:"5,411",l:"total records\nreviewed",c:C.ink,bg:C.muted},
-            {v:"93%",l:"avg first-\ntime-right",c:C.blue,bg:C.blueT2},
+            {v:"97.3%",l:"projected\naccuracy",c:C.blue,bg:C.blueT2},
             {v:"1",l:"pending\nCompliance",c:C.amber,bg:C.amberT},
           ].map(({v,l,c,bg},i)=>(
             <div key={i} style={{padding:"10px 16px",background:bg,borderRadius:8,textAlign:"center",minWidth:80}}>
@@ -3453,7 +3453,7 @@ const DoneScreen=({onRestart})=>{
                   {isBlocked&&(
                     <div style={{padding:"8px 10px",background:C.amberT,borderRadius:7,
                       borderLeft:`3px solid ${C.amber}`,fontSize:11,color:C.ink,lineHeight:1.55,marginBottom:8}}>
-                      312 records exceed 0.01% valuation tolerance — Compliance decision required before back-reporting to VBK AG, Castleford Bank, and Rheinfeld Bank AG.
+                      312 records exceed 0.01% valuation tolerance — Compliance decision required before back-reporting to VBK AG, Castleford Bank Plc, and Rheinfeld Bank AG.
                     </div>
                   )}
 
@@ -3591,7 +3591,7 @@ const DoneScreen=({onRestart})=>{
                     <EoField label="1.0 Date" value="13 May 2026" agent/>
                     <EoField label="1.1 Executing entity" value="Whale Capital" agent/>
                     <EoField label="1.2 LEI" value="WHLCPT00MOCK00000120" agent/>
-                    <EoField label="1.3 Type of firm" value="Electronic Money Institution / PSP" agent/>
+                    <EoField label="1.3 Type of firm" value="Electronic Money Institution" agent/>
                     <EoField label="1.4 Submitting ARM" value="DFR Reporting Platform" agent/>
                     <EoField label="1.5 Contact name &amp; title" required hint="Enter contact name and job title"/>
                     <EoField label="1.6 Contact email" required hint="Enter email address"/>
@@ -3603,25 +3603,25 @@ const DoneScreen=({onRestart})=>{
                   <EoField label="2.1 Relevant regulation" agent
                     value="Commission Delegated Regulation (EU) 2017/590, Article 15(2) — MiFID II transaction reporting; CFTC Part 45 swap data reporting"/>
                   <EoField label="2.2 Details of issue and scope" agent
-                    value="3 structural data errors across FX Swap/Forward records affecting 5,411 reports via DFR_Reporting_RAW_Feed: (1) CP2 LEI lookup failure — broker_lei_ref_dict missing 3 counterparties onboarded post 14 Jan 2026, 415 records, field 1_14_counterparty_2; (2) CP2 financial entity indicator mismatch — intragroup_flag absent from 1_17 derivation logic, 184 records; (3) Notional precision loss — Original_TargetAmount at 2dp with no expansion step, 4,812 records, field 1_31_notional_amt_leg_1."/>
+                    value="3 structural data errors across FX Swap/Forward records affecting 5,411 reports via DFR_Reporting_RAW_Feed: (1) CP2 LEI lookup failure — broker_code_lei_ref_dict missing 3 counterparties onboarded post 14 Jan 2026, 415 records, field 1_14_counterparty_2; (2) CP2 financial entity indicator mismatch — intragroup_flag absent from 1_17 derivation logic, 184 records; (3) Notional precision loss — Original_TargetAmount at 2dp with no expansion step, 4,812 records, field 1_31_notional_amt_leg_1."/>
                   <EoField label="2.3 Field(s) with error / omission" agent
                     value="1_14_counterparty_2 (415) · 1_17_counterparty_2_financial_entity_indicator (184) · 1_31_notional_amt_leg_1 (4,812). Secondary: 1_15_counterparty_2_identifier_source (89) and 1_31_notional_amt_leg_2 (assessment pending)."/>
                   <EoField label="2.4 Root cause" agent
-                    value="(1) broker_lei_ref_dict not updated post 3 new onboardings after 14 Jan 2026 — CLIENT_ID → PartyFile.TradePartyValue lookup failing. (2) 1_17 derivation references TradePartyValue LEI only; intragroup_flag not consulted — confirmed absent in lineage mapping. (3) DFR Formatting step maps Original_TargetAmount 1-1 to 1_31 with no precision expansion — 2dp transmitted where 6dp required."/>
+                    value="(1) broker_code_lei_ref_dict not updated post 3 new onboardings after 14 Jan 2026 — CLIENT_ID → PartyFile.TradePartyValue lookup failing for Alderton Capital International, Castleford Bank Plc, and Meridian Securities &amp; Co. (2) 1_17 derivation references TradePartyValue LEI only; intragroup_flag not consulted — confirmed absent from rule spec v2.1. (3) DFR Formatting step maps Original_TargetAmount 1-to-1 to 1_31 with no precision expansion — 2dp transmitted where 6dp required."/>
                   <EoField label="2.5 How discovered" agent
                     value="Detected by En:ACT Root Cause Analysis Agent on 09 May 2026 via lineage analysis. Validated by DFR lineage mapping audit and reviewed by the reporting team."/>
                   <EoField label="2.6 Period for which issue occurred" agent
                     value="Issues 1 &amp; 2: estimated onset 14 Jan 2026 (last dict refresh); detected 09 May 2026. Issue 3: onset under review — pipeline unchanged for extended period; back-reporting window TBC pending Compliance sign-off."/>
                   <EoField label="2.7 Total reports impacted" agent
-                    value="5,411 confirmed (415 + 184 + 4,812). 691 remediated and safe to back-report (FX-RC1 + FX-RC2 + FX-RC4, avg FTR 93%). 4,812 (FX-RC3) pending Compliance review."/>
+                    value="5,411 confirmed (415 + 184 + 4,812). 599 records (P1 + P2) ready for back-report upon Compliance sign-off — avg FTR 97.3%. 4,812 (P3 / RC3) pending Compliance decision on valuation tolerance. 92 cascade records (RC2 downstream) included in P1 scope."/>
                 </EoSection>
 
                 <EoSection num="3" title="Remediation &amp; Back-Reporting" open>
                   <EoField label="3.1 Oversight responsibility" required hint="Name the individual or committee with oversight"/>
                   <EoField label="3.2 Actions taken to remediate" agent
-                    value="3 remediation plans prepared by En:ACT and reviewed by the reporting team: (1) broker_lei_ref_dict update — 415 records to be re-derived and back-reported, pending ref data team action; (2) intragroup_flag → 1_17 derivation rule addition — 184 records, pending ops re-processing; (3) DFR recon feed key rebuild for 92 cascade records, pending ops confirmation. Outstanding: FX-RC3 precision fix pending Compliance sign-off (312-record valuation tolerance risk). Assessment of 1_31_notional_amt_leg_2 outstanding."/>
+                    value="3 remediation plans prepared by En:ACT and reviewed by the reporting team: (1) P1 / RC1 — broker_code_lei_ref_dict updated with 3 missing counterparties; 415 records to be re-derived and back-reported by ref data team; (2) P2 / RC2 — intragroup_flag conditional added to 1_17 derivation rule spec v2.2; 184 records to be reprocessed by ops; (3) P3 / RC3 — 6dp precision conversion to be added to DFR → TRACC pipeline; 4,812 records pending Compliance decision on 312 tolerance-exception records. Assessment of 1_31_notional_amt_leg_2 (Leg 2) outstanding."/>
                   <EoField label="3.3 Total transactions to back-report" agent
-                    value="691 back-reported (readiness 97.3%). 4,812 pending Compliance sign-off (FX-RC3, est. 10 business days from approval)."/>
+                    value="599 back-reported on Compliance sign-off (P1 + P2, readiness 97.3%). 4,812 pending Compliance decision (P3 / RC3, est. 10 business days from sign-off)."/>
                   <EoField label="3.4 Systems &amp; controls weaknesses" required hint="Detail weaknesses identified"/>
                   <EoField label="3.5 Plans to address weaknesses" required hint="Detail remediation plans for control gaps"/>
                 </EoSection>
