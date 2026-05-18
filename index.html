@@ -1268,46 +1268,67 @@ const MACRO_CLUSTERS = [
     title:"Identity & counterparty ID field failures",
     rcaType:"Regulatory Guidance · Field value status",
     source:"Regulatory Guidance",
-    summary:"All 5,661 submissions carry LEI and entity identifier failures — structural source system mapping issue affecting 8 core party fields. Likely a stale reference table or broken enrichment step in the reporting pipeline.",
+    section:"Parties to the derivative",
+    fixOwner:"Source system / Ref data team",
+    eta:"2–3 days",
+    quickWin:false,
+    testCount:13,
+    summary:"Every single submission fails on core LEI and entity identifier fields — 100% population impact. All 5,661 submissions carry stale or invalid party identifiers. Root cause is likely a broken enrichment step or stale reference table upstream of the reporting pipeline.",
+    whyItFails:"Reported LEI values fail GLEIF database validation. The reference dictionary used for entity ID lookups hasn't been refreshed — status codes 'Issued', 'Lapsed', 'Pending transfer' expected but not present. Linked to validation rules EMIR-VR-1002-01 through EMIR-VR-1002-03.",
     regimes:["EU EMIR"],
     fieldsAffected:8, failures:45859, submissions:5661, impactPct:100, confidence:78,
     crossRegime:false,
     pattern:"Recurring across all time periods — not intermittent",
+    benchmarkNote:"All 5 identity fields rated 'Least Accurate' vs buy-side peers in benchmarking — not isolated to this entity",
     fieldBreakdown:[
-      {field:"1_2_report_submitting_entity_id", label:"Report submitting entity ID",    failures:5661, pct:100},
-      {field:"1_3_entity_responsible_for_reporting", label:"Entity responsible for reporting", failures:5661, pct:100},
-      {field:"1_4_cpty_1_id",  label:"Counterparty 1 (Reporting counterparty)", failures:5661, pct:100},
-      {field:"1_9_cpty_2_id",  label:"Counterparty 2",                          failures:5661, pct:100},
-      {field:"2_41_execution_venue", label:"Venue of execution",                failures:5661, pct:100},
+      {field:"1_2_report_submitting_entity_id",       label:"Report submitting entity ID",     failures:5661, pct:100},
+      {field:"1_3_entity_responsible_for_reporting",  label:"Entity responsible for reporting",failures:5661, pct:100},
+      {field:"1_4_cpty_1_id",                         label:"Counterparty 1",                  failures:5661, pct:100},
+      {field:"1_9_cpty_2_id",                         label:"Counterparty 2",                  failures:5661, pct:100},
+      {field:"2_41_execution_venue",                  label:"Venue of execution",              failures:5661, pct:100},
     ]},
 
   { id:"RC-B", severity:"high",
-    title:"Regulatory text interpretation — multi-field",
+    title:"Regulatory text interpretation — 62 fields cross-regime",
     rcaType:"Regulatory Text · Derived field logic",
     source:"Regulatory Text",
-    summary:"62 fields across CFTC P45 and EU MiFIR showing systematic interpretation gaps in derived field and conditionality logic. Same structural gap, different field mappings per regime.",
+    section:"Multiple — derived fields (buyer/seller identity, currency)",
+    fixOwner:"Derivation engine · Regulatory interpretation",
+    eta:"1–2 weeks",
+    quickWin:false,
+    testCount:93,
+    summary:"62 fields failing across CFTC P45 and EU MiFIR through the same structural gap — derived field and conditionality logic misinterprets regulatory text. Largest cluster by test count: 93 tests failing across 62 fields. Same root cause, different field paths per regime.",
+    whyItFails:"Derivation rules for branch country codes, decision maker IDs, and currency fields don't correctly implement the regulatory text — particularly around buyer/seller branch logic. The interpretation gap produces incorrect or blank values across both regimes.",
     regimes:["CFTC P45","EU MiFIR"],
     fieldsAffected:62, failures:12882, submissions:3600, impactPct:36, confidence:55,
     crossRegime:true,
     pattern:"Cross-regime — same root cause, different field path per regime",
+    benchmarkNote:"MiFIR accounts for 8,024 failures across 22 fields; CFTC contributes 5,802 failures across 53 fields",
     fieldBreakdown:[
-      {field:"8_buyer_cc",        label:"Country of branch (buyer)",      failures:1401, pct:39},
-      {field:"12_buyer_dm_id_code",label:"Buyer decision maker code",     failures:1401, pct:39},
-      {field:"17_seller_cc",      label:"Country of branch (seller)",     failures:1031, pct:29},
-      {field:"21_seller_dm_id_code",label:"Seller decision maker code",   failures:1031, pct:29},
+      {field:"8_buyer_cc",          label:"Country of branch (buyer)",    failures:1401, pct:39},
+      {field:"12_buyer_dm_id_code", label:"Buyer decision maker ID",      failures:1401, pct:39},
+      {field:"17_seller_cc",        label:"Country of branch (seller)",   failures:1031, pct:29},
+      {field:"21_seller_dm_id_code",label:"Seller decision maker ID",     failures:1031, pct:29},
       {field:"31_quantity_currency",label:"Quantity currency",            failures:998,  pct:28},
-      {field:"34_price_currency", label:"Price currency",                 failures:792,  pct:22},
+      {field:"34_price_currency",   label:"Price currency",               failures:792,  pct:22},
     ]},
 
   { id:"RC-C", severity:"high",
     title:"ISIN format non-compliance",
     rcaType:"Regulatory Guidance · Field Format",
     source:"Regulatory Guidance",
-    summary:"ISIN field transmitted in non-compliant format across 4,822 submissions. Single-field, single pipeline — high fix confidence. Likely a formatting step missing in the transformation layer.",
+    section:"Section 2b — Contract information",
+    fixOwner:"Pipeline / Transformation layer",
+    eta:"< 1 day",
+    quickWin:true,
+    testCount:1,
+    summary:"ISIN field is transmitted in a non-compliant format across 85% of submissions. A single test, a single field, a single pipeline — and 84% fix confidence. This is the highest-confidence, lowest-complexity fix available.",
+    whyItFails:"ISIN values don't conform to the required 12-character alphanumeric format per regulatory guidance. A formatting step is missing or misconfigured in the transformation layer before submission. Rule: value must be a valid ISIN (12 alphanumeric characters).",
     regimes:["EU EMIR"],
     fieldsAffected:1, failures:4822, submissions:5661, impactPct:85, confidence:84,
     crossRegime:false,
     pattern:"Consistent format error — single pipeline, single fix",
+    benchmarkNote:"Quick win: 1 field · 1 test · 84% fix confidence — highest effort-to-impact ratio across all clusters",
     fieldBreakdown:[
       {field:"2_7_isin", label:"ISIN", failures:4822, pct:85},
     ]},
@@ -1316,46 +1337,67 @@ const MACRO_CLUSTERS = [
     title:"UPI product conditionality gap",
     rcaType:"Novatus Anomaly · UPI Conditionality",
     source:"Novatus Anomaly",
-    summary:"Delivery type and asset class fields not correctly populated under UPI conditionality rules. Agent confidence high on asset class fix (100%). Likely absent conditional branch in derivation logic.",
+    section:"Section 2b/2c — Contract & transaction details",
+    fixOwner:"Novatus platform team",
+    eta:"1–2 days",
+    quickWin:false,
+    testCount:2,
+    summary:"Delivery type and asset class not correctly populated under UPI conditionality logic. A known Novatus anomaly class — conditional branch absent from the derivation spec. Asset class fix has 100% agent confidence.",
+    whyItFails:"Delivery type (2_47) and asset class (2_11) fields require conditional population based on UPI records in the ANNA DSB. The conditionality branch is absent from the derivation rule — producing blank or incorrect values. Delivery type flagged as 'High Concern' in industry benchmarking (97.7% impact).",
     regimes:["EU EMIR"],
     fieldsAffected:2, failures:4173, submissions:5661, impactPct:59, confidence:90,
     crossRegime:false,
     pattern:"Conditionality logic absent — known Novatus anomaly class",
+    benchmarkNote:"Delivery type flagged as 'High Concern' in buy-side benchmarking at 97.7% impact — widespread industry issue",
     fieldBreakdown:[
       {field:"2_47_delivery_type", label:"Delivery type",  failures:3334, pct:59},
       {field:"2_11_asset_class",   label:"Asset class",    failures:839,  pct:15},
     ]},
 
   { id:"RC-E", severity:"medium",
-    title:"Field conditionality logic failures",
+    title:"Conditionality logic gaps — 7 fields",
     rcaType:"Regulatory Guidance · Field Conditionality",
     source:"Regulatory Guidance",
-    summary:"7 fields failing conditionality rules — UPI, strike price currency, package identifiers, exchange rate basis. Mix of absent derivation rules and stale conditional logic.",
+    section:"Section 2b/2l — Contract info & options",
+    fixOwner:"Derivation engine team",
+    eta:"3–5 days",
+    quickWin:false,
+    testCount:8,
+    summary:"8 tests failing across 7 fields — all conditionality derivation gaps. UPI alone accounts for 44% of submissions. Fields span contract identifiers, strike price currency, exchange rate basis, and package IDs. UPI is also flagged as 'High Concern' in industry benchmarking.",
+    whyItFails:"Conditionality rules for each field are either absent or reference outdated logic. UPI (2_8) has 60% fix confidence — the derivation path is partially known. Strike price currency, package identifier, and exchange rate basis failures are lower impact but consistent, suggesting a batch of missing conditional branches.",
     regimes:["EU EMIR"],
     fieldsAffected:7, failures:3578, submissions:5661, impactPct:44, confidence:62,
     crossRegime:false,
     pattern:"Multiple derivation rule gaps — grouped by conditionality failure type",
+    benchmarkNote:"UPI flagged 'High Concern' by industry benchmarking at 86.2% impact — fix confidence 60%, manual review recommended",
     fieldBreakdown:[
-      {field:"2_8_upi",               label:"Unique product identifier (UPI)",  failures:2495, pct:44},
-      {field:"2_51_strike_price_ccy", label:"Strike price currency/pair",       failures:433,  pct:8},
-      {field:"2_2_package_id",        label:"Package identifier",               failures:369,  pct:7},
-      {field:"2_56_exchange_rate",    label:"Exchange rate basis",              failures:205,  pct:4},
-      {field:"1_3_entity_reporting",  label:"Entity responsible for reporting", failures:68,   pct:1},
+      {field:"2_8_upi",               label:"Unique product identifier (UPI)", failures:2495, pct:44},
+      {field:"2_51_strike_price_ccy", label:"Strike price currency/pair",      failures:433,  pct:8},
+      {field:"2_2_package_id",        label:"Package identifier",              failures:369,  pct:7},
+      {field:"2_56_exchange_rate",    label:"Exchange rate basis",             failures:205,  pct:4},
+      {field:"1_3_entity_reporting",  label:"Entity responsible for reporting",failures:68,   pct:1},
     ]},
 
   { id:"RC-F", severity:"medium",
     title:"Cross-regime counterparty identifier drift",
     rcaType:"Regulatory Guidance · Cross-regime",
     source:"Regulatory Guidance",
-    summary:"Counterparty 2 identifier failing across EU EMIR and CFTC P45 — same structural ref-data gap, different field mappings per regime. Single fix to the counterparty reference table resolves both.",
+    section:"Parties to the derivative",
+    fixOwner:"Reference data team",
+    eta:"< 1 day",
+    quickWin:true,
+    testCount:4,
+    summary:"Counterparty 2 identifier failing in both EU EMIR and CFTC P45 — same ref-data gap, different field paths. A single update to the counterparty reference table resolves both regimes simultaneously. Lowest time-to-fix of all cross-regime clusters.",
+    whyItFails:"The counterparty 2 identifier drifts between regimes — EU EMIR uses field 1_9_cpty_2_id while CFTC maps the same party across payer/receiver leg 2 fields. The underlying ref-data source is the same; stale or incorrect entries in the counterparty table propagate to both regime outputs.",
     regimes:["EU EMIR","CFTC P45"],
     fieldsAffected:4, failures:924, submissions:5661, impactPct:16, confidence:71,
     crossRegime:true,
     pattern:"Cross-regime — single ref-data fix resolves both regimes",
+    benchmarkNote:"Quick win: single ref-data fix resolves 2 regimes simultaneously — lowest complexity cross-regime cluster",
     fieldBreakdown:[
-      {field:"1_9_cpty_2_id",           label:"Counterparty 2 (EU EMIR)",        failures:438, pct:8},
-      {field:"1_76_receiver_id_leg2",   label:"Receiver Identifier — Leg 2 (CFTC)", failures:457, pct:9},
-      {field:"1_74_payer_id_leg2",      label:"Payer Identifier — Leg 2 (CFTC)",    failures:455, pct:9},
+      {field:"1_9_cpty_2_id",         label:"Counterparty 2 (EU EMIR)",           failures:438, pct:8},
+      {field:"1_76_receiver_id_leg2", label:"Receiver ID — Leg 2 (CFTC)",         failures:457, pct:9},
+      {field:"1_74_payer_id_leg2",    label:"Payer ID — Leg 2 (CFTC)",            failures:455, pct:9},
     ]},
 ];
 
@@ -1364,11 +1406,28 @@ const MACRO_SUMMARY = {
   lei:"WHLCPT00MOCK00000120",
   regimes:["EU EMIR","CFTC P45","EU MiFIR"],
   totalSubmissions:5661,
-  totalFailures:72236,
+  totalFailures:72657,
+  totalTests:121,
   overallImpactPct:100,
   fieldsWithIssues:84,
   rootCausesIdentified:6,
-  window:"Last submission window",
+  window:"EU EMIR Feb 2026 · CFTC Aug 2025 · MiFIR Apr 2024",
+  regimeBreakdown:[
+    {regime:"EU EMIR",  failures:58831, fields:23, pct:81},
+    {regime:"EU MiFIR", failures:8024,  fields:22, pct:11},
+    {regime:"CFTC P45", failures:5802,  fields:53, pct:8},
+  ],
+  sourceBreakdown:[
+    {source:"Regulatory Guidance", failures:55183, pct:76, col:"#e14a37"},
+    {source:"Regulatory Text",     failures:12882, pct:18, col:"#B45309"},
+    {source:"Novatus Anomaly",     failures:4345,  pct:6,  col:"#44709D"},
+  ],
+  sectionBreakdown:[
+    {section:"Parties to the derivative",  failures:40235, pct:55},
+    {section:"Contract information (2b)",  failures:8159,  pct:11},
+    {section:"Transaction details (2g/2c)",failures:9072,  pct:12},
+    {section:"Conditionality / options",   failures:993,   pct:1},
+  ],
 };
 
 // ── RC lookup map ─────────────────────────────────────────────────────────────
@@ -1797,26 +1856,38 @@ const MacroView=({onLaunch})=>{
 
           {/* title block */}
           <div style={{flex:1,minWidth:0,padding:"12px 12px 12px 6px"}}>
-            <div style={{
-              fontSize:13,fontWeight:700,color:C.ink,lineHeight:1.3,
-              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-            }}>{c.title}</div>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+              <div style={{
+                fontSize:13,fontWeight:700,color:C.ink,lineHeight:1.3,
+                whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+              }}>{c.title}</div>
+              {c.quickWin&&(
+                <span style={{
+                  fontSize:8,fontWeight:800,color:"#166534",
+                  background:"#DCFCE7",border:"1px solid #86EFAC",
+                  padding:"1px 6px",borderRadius:3,flexShrink:0,letterSpacing:"0.03em",
+                }}>QUICK WIN</span>
+              )}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
               {c.regimes.map(r=>(
                 <span key={r} style={{
                   fontSize:9,fontWeight:700,color:C.blue,
                   background:C.blueT2,padding:"1px 6px",borderRadius:4,
                 }}>{r}</span>
               ))}
+              <span style={{fontSize:9,color:C.ink3}}>·</span>
               <span style={{fontSize:10,color:C.ink3,fontWeight:500}}>
-                {c.fieldsAffected} field{c.fieldsAffected!==1?"s":" "} · {c.source}
+                {c.testCount} test{c.testCount!==1?"s":""} · {c.fieldsAffected} field{c.fieldsAffected!==1?"s":""}
               </span>
+              <span style={{fontSize:9,color:C.ink3}}>·</span>
+              <span style={{fontSize:10,color:C.ink3,fontStyle:"italic"}}>{c.fixOwner}</span>
             </div>
           </div>
 
           {/* key stats — compact, inline */}
           <div style={{
-            display:"flex",alignItems:"center",gap:20,
+            display:"flex",alignItems:"center",gap:16,
             flexShrink:0,paddingRight:16,
           }}>
             <div style={{textAlign:"right"}}>
@@ -1825,11 +1896,15 @@ const MacroView=({onLaunch})=>{
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:16,fontWeight:800,color:C.ink,letterSpacing:"-0.02em",lineHeight:1}}>{c.impactPct}%</div>
-              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>of submissions</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>of subs</div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:16,fontWeight:800,color:C.ink2,letterSpacing:"-0.02em",lineHeight:1}}>{c.confidence}%</div>
               <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>confidence</div>
+            </div>
+            <div style={{textAlign:"right",borderLeft:`1px solid ${C.line}`,paddingLeft:14}}>
+              <div style={{fontSize:13,fontWeight:700,color:c.quickWin?"#166534":C.ink,letterSpacing:"-0.01em",lineHeight:1}}>{c.eta}</div>
+              <div style={{fontSize:9,color:C.ink3,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>est. fix time</div>
             </div>
           </div>
 
@@ -1955,50 +2030,75 @@ const MacroView=({onLaunch})=>{
               {/* RIGHT — root cause narrative */}
               <div style={{flex:1,padding:"20px 22px",display:"flex",flexDirection:"column",gap:16}}>
 
-                {/* RCA type tag */}
-                <div style={{
-                  display:"inline-flex",alignItems:"center",gap:6,
-                  padding:"4px 10px",borderRadius:5,width:"fit-content",
-                  background:sev.bg,border:`1px solid ${sev.col}33`,
-                }}>
-                  <span style={{width:6,height:6,borderRadius:999,background:sev.col,flexShrink:0}}/>
-                  <span style={{fontSize:11,fontWeight:700,color:sev.col}}>{c.rcaType}</span>
+                {/* RCA type + meta row */}
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <div style={{
+                    display:"inline-flex",alignItems:"center",gap:5,
+                    padding:"3px 9px",borderRadius:4,
+                    background:sev.bg,border:`1px solid ${sev.col}33`,
+                  }}>
+                    <span style={{width:5,height:5,borderRadius:999,background:sev.col,flexShrink:0}}/>
+                    <span style={{fontSize:10,fontWeight:700,color:sev.col}}>{c.rcaType}</span>
+                  </div>
+                  {c.quickWin&&(
+                    <span style={{fontSize:9,fontWeight:800,color:"#166534",background:"#DCFCE7",border:"1px solid #86EFAC",padding:"2px 7px",borderRadius:4}}>QUICK WIN</span>
+                  )}
                 </div>
 
-                {/* summary — the "what happened" */}
+                {/* what happened */}
                 <div>
-                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:6}}>What happened</div>
-                  <div style={{fontSize:12,color:C.ink,lineHeight:1.7,fontWeight:400}}>{c.summary}</div>
+                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:5}}>What happened</div>
+                  <div style={{fontSize:12,color:C.ink,lineHeight:1.7}}>{c.summary}</div>
                 </div>
 
-                {/* pattern */}
-                <div style={{
-                  padding:"10px 12px",
-                  background:"#fff",borderRadius:7,
-                  border:`1px solid ${C.line}`,
-                }}>
-                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:5}}>Failure pattern</div>
-                  <div style={{fontSize:12,color:C.ink2,lineHeight:1.55}}>{c.pattern}</div>
+                {/* why it fails */}
+                <div style={{padding:"10px 12px",background:"#fff",borderRadius:7,border:`1px solid ${C.line}`}}>
+                  <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:5}}>Why it fails</div>
+                  <div style={{fontSize:11,color:C.ink2,lineHeight:1.6}}>{c.whyItFails}</div>
+                </div>
+
+                {/* fix metadata row */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[
+                    {l:"Fix owner",      v:c.fixOwner},
+                    {l:"Est. fix time",  v:c.eta},
+                    {l:"Report section", v:c.section},
+                    {l:"Tests failing",  v:`${c.testCount} test${c.testCount!==1?"s":""} · ${c.fieldsAffected} field${c.fieldsAffected!==1?"s":""}`},
+                  ].map(({l,v})=>(
+                    <div key={l} style={{padding:"7px 10px",background:"#fff",borderRadius:6,border:`1px solid ${C.line}`}}>
+                      <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:C.ink,lineHeight:1.3}}>{v}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* confidence gauge */}
                 <div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                     <span style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em"}}>Fix confidence</span>
-                    <span style={{fontSize:13,fontWeight:800,color:c.confidence>=80?C.green:c.confidence>=60?"#B45309":C.ink2}}>{c.confidence}%</span>
+                    <span style={{fontSize:13,fontWeight:800,color:c.confidence>=80?"#166534":c.confidence>=60?"#B45309":C.ink2}}>{c.confidence}%</span>
                   </div>
-                  <div style={{height:5,background:C.muted,borderRadius:999,overflow:"hidden"}}>
-                    <div style={{
-                      width:`${c.confidence}%`,height:"100%",borderRadius:999,
-                      background:c.confidence>=80?C.green:c.confidence>=60?"#B45309":C.ink2,
-                    }}/>
+                  <div style={{height:5,background:C.muted,borderRadius:999}}>
+                    <div style={{width:`${c.confidence}%`,height:"100%",borderRadius:999,background:c.confidence>=80?"#22C55E":c.confidence>=60?"#B45309":C.ink2}}/>
                   </div>
-                  <div style={{fontSize:10,color:C.ink3,marginTop:5}}>
-                    {c.confidence>=80?"High — agent confident in proposed resolution"
-                    :c.confidence>=60?"Medium — manual review recommended before applying fix"
+                  <div style={{fontSize:10,color:C.ink3,marginTop:4}}>
+                    {c.confidence>=80?"High — agent is confident in the proposed resolution"
+                    :c.confidence>=60?"Medium — manual review recommended before applying"
                     :"Lower — further investigation needed before proceeding"}
                   </div>
                 </div>
+
+                {/* benchmarking note */}
+                {c.benchmarkNote&&(
+                  <div style={{
+                    padding:"8px 11px",borderRadius:6,
+                    background:"#FAFAFA",border:`1px solid ${C.line}`,
+                    display:"flex",gap:8,alignItems:"flex-start",
+                  }}>
+                    <span style={{fontSize:12,flexShrink:0}}>📊</span>
+                    <span style={{fontSize:10,color:C.ink3,lineHeight:1.55}}>{c.benchmarkNote}</span>
+                  </div>
+                )}
 
                 {/* queue CTA */}
                 <button onClick={()=>toggleQueue(c.id)}
@@ -2144,32 +2244,132 @@ const MacroView=({onLaunch})=>{
       {/* ── MAIN CONTENT ── */}
       <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:"#F5F6F8"}}>
 
-        {/* top bar */}
+        {/* ── SITUATION SUMMARY STRIP ── */}
         <div style={{
-          padding:"14px 22px",background:"#fff",
+          padding:"0 22px",background:"#fff",
           borderBottom:`1px solid ${C.line}`,flexShrink:0,
-          display:"flex",alignItems:"center",gap:16,
         }}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:17,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
-            <div style={{fontSize:11,color:C.ink3,marginTop:3}}>
-              {displayed.length} root cause clusters · {MACRO_SUMMARY.totalFailures.toLocaleString()} total failures · {MACRO_SUMMARY.window}
+          {/* title row */}
+          <div style={{
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+            paddingTop:14,paddingBottom:12,
+            borderBottom:`1px solid ${C.line}`,
+          }}>
+            <div>
+              <div style={{fontSize:17,fontWeight:700,letterSpacing:"-0.01em",color:C.ink}}>Structural issue map</div>
+              <div style={{fontSize:11,color:C.ink3,marginTop:2}}>{MACRO_SUMMARY.window}</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>Sort</span>
+              {[["failures","Failures"],["impact","Impact"],["confidence","Confidence"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setSortBy(k)}
+                  style={{
+                    padding:"4px 10px",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer",
+                    background:sortBy===k?C.blue:"transparent",
+                    color:sortBy===k?"#fff":C.ink3,
+                    border:`1px solid ${sortBy===k?C.blue:C.line}`,
+                    transition:"all 100ms",
+                  }}>{l}</button>
+              ))}
+              <Clock/>
             </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:10,color:C.ink3,fontWeight:600}}>Sort</span>
-            {[["failures","By failures"],["impact","By impact"],["confidence","By confidence"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setSortBy(k)}
-                style={{
-                  padding:"4px 10px",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer",
-                  background:sortBy===k?C.blue:"transparent",
-                  color:sortBy===k?"#fff":C.ink3,
-                  border:`1px solid ${sortBy===k?C.blue:C.line}`,
-                  transition:"all 100ms",
-                }}>{l}</button>
+
+          {/* stat tiles */}
+          <div style={{
+            display:"grid",gridTemplateColumns:"repeat(5,1fr)",
+            gap:0,padding:"14px 0 0",
+          }}>
+            {[
+              {v:MACRO_SUMMARY.totalFailures.toLocaleString(), l:"Total test failures",    col:"#e14a37", sub:"across all regimes"},
+              {v:"100%",                                        l:"Submissions impacted",   col:"#e14a37", sub:"every record affected"},
+              {v:MACRO_SUMMARY.totalTests,                     l:"Tests failing",          col:"#B45309", sub:"across 84 fields"},
+              {v:MACRO_SUMMARY.rootCausesIdentified,           l:"Root causes identified", col:C.blue,    sub:"2 cross-regime"},
+              {v:"2",                                          l:"Quick wins available",   col:"#166534", sub:"RC-C and RC-F"},
+            ].map(({v,l,col,sub},i)=>(
+              <div key={i} style={{
+                paddingBottom:14,
+                paddingRight:i<4?20:0,
+                marginRight:i<4?20:0,
+                borderRight:i<4?`1px solid ${C.line}`:"none",
+              }}>
+                <div style={{fontSize:22,fontWeight:800,color:col,letterSpacing:"-0.025em",lineHeight:1}}>{v}</div>
+                <div style={{fontSize:11,fontWeight:600,color:C.ink,marginTop:4}}>{l}</div>
+                <div style={{fontSize:10,color:C.ink3,marginTop:1}}>{sub}</div>
+              </div>
             ))}
           </div>
-          <Clock/>
+
+          {/* ── 3-column insight row ── */}
+          <div style={{
+            display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
+            gap:16,paddingBottom:16,paddingTop:4,
+            borderTop:`1px solid ${C.line}`,
+          }}>
+
+            {/* Regime breakdown */}
+            <div>
+              <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,marginTop:12}}>Failures by regime</div>
+              {MACRO_SUMMARY.regimeBreakdown.map((r,i)=>(
+                <div key={r.regime} style={{marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                    <span style={{fontSize:11,fontWeight:600,color:C.ink}}>{r.regime}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:C.ink}}>{r.failures.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{flex:1,height:5,background:C.muted,borderRadius:2}}>
+                      <div style={{
+                        width:`${r.pct}%`,height:"100%",borderRadius:2,
+                        background:i===0?"#e14a37":i===1?"#B45309":C.blue,
+                      }}/>
+                    </div>
+                    <span style={{fontSize:10,fontWeight:700,color:C.ink3,minWidth:24,textAlign:"right"}}>{r.pct}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Root cause origin */}
+            <div style={{borderLeft:`1px solid ${C.line}`,paddingLeft:16}}>
+              <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,marginTop:12}}>Root cause origin</div>
+              {MACRO_SUMMARY.sourceBreakdown.map((s,i)=>(
+                <div key={s.source} style={{marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                    <span style={{fontSize:11,fontWeight:600,color:C.ink}}>{s.source}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:C.ink}}>{s.failures.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{flex:1,height:5,background:C.muted,borderRadius:2}}>
+                      <div style={{width:`${s.pct}%`,height:"100%",borderRadius:2,background:s.col}}/>
+                    </div>
+                    <span style={{fontSize:10,fontWeight:700,color:C.ink3,minWidth:24,textAlign:"right"}}>{s.pct}%</span>
+                  </div>
+                </div>
+              ))}
+              <div style={{marginTop:8,fontSize:10,color:C.ink3,lineHeight:1.5}}>
+                76% fixable via rule updates · 6% Novatus platform work
+              </div>
+            </div>
+
+            {/* Section hotspot */}
+            <div style={{borderLeft:`1px solid ${C.line}`,paddingLeft:16}}>
+              <div style={{fontSize:9,fontWeight:700,color:C.ink3,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,marginTop:12}}>Report section hotspot</div>
+              {MACRO_SUMMARY.sectionBreakdown.map((s,i)=>(
+                <div key={s.section} style={{marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                    <span style={{fontSize:10,fontWeight:600,color:C.ink,lineHeight:1.2}}>{s.section}</span>
+                    <span style={{fontSize:10,fontWeight:700,color:C.ink3}}>{s.pct}%</span>
+                  </div>
+                  <div style={{height:4,background:C.muted,borderRadius:2}}>
+                    <div style={{width:`${s.pct}%`,height:"100%",borderRadius:2,background:i===0?"#e14a37":C.ink3,opacity:i===0?1:0.5}}/>
+                  </div>
+                </div>
+              ))}
+              <div style={{marginTop:8,fontSize:10,color:C.ink3,lineHeight:1.5}}>
+                Counterparty identity fields account for more than half of all failures
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* list */}
